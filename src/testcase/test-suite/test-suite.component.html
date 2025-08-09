@@ -1,0 +1,138 @@
+<app-alert
+  [type]="alertType()"
+  [message]="alertMessage()"
+  [show]="showAlert()"
+  [isConfirm]="isConfirmAlert()"
+  (onConfirm)="handleConfirmDelete()"
+  (onCancel)="handleCancelDelete()">
+</app-alert>
+
+<div class="test-suite-container">
+  <!-- Main List View -->
+  <div *ngIf="mode() === 'list'" class="list-view">
+    <h2 class="text-center">Test Suites Management</h2>
+
+    <div class="action-buttons">
+      <button class="btn-primary" (click)="startAddNewSuite()"> Add New Test Suite</button>
+    </div>
+
+    <div *ngIf="testSuites().length > 0" class="suites-list">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Test Cases</th>
+            <th>Last Updated</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let suite of testSuites()">
+            <td>{{ suite.name }}</td>
+            <td>{{ suite.description || '-' }}</td>
+            <td>{{ suite.testCases?.length || 0 }}</td>
+            <td>{{ suite.updatedAt | date:'mediumDate' }}</td>
+            <td class="actions">
+              <button class="btn-edit" (click)="startEditSuite(suite.id)">Edit</button>
+              <button class="btn-delete" (click)="confirmDeleteSuite(suite.id)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="testSuites().length === 0" class="no-suites">
+      No test suites found. Create your first test suite!
+    </div>
+  </div>
+
+  <!-- Add/Edit View -->
+  <div *ngIf="mode() !== 'list'" class="edit-view">
+    <h2 class="text-center">{{ mode() === 'add' ? 'Add New' : 'Edit' }} Test Suite</h2>
+
+    <div class="form-group">
+      <label>Test Suite Name</label>
+      <input type="text" [(ngModel)]="suiteName" placeholder="Enter suite name">
+    </div>
+
+    <div class="form-group">
+      <label>Description </label>
+      <textarea [(ngModel)]="suiteDescription" placeholder="Enter description"></textarea>
+    </div>
+
+    <!-- Module Selection -->
+    <div class="form-group">
+      <label>Select Module</label>
+      
+      <select [(ngModel)]="selectedModuleId" (ngModelChange)="onModuleSelect($event)">
+        <option value="">-- Select Module --</option>
+        <option *ngFor="let module of modules()" [value]="module.id">
+          {{ module.name }}
+        </option>
+      </select>
+    
+      
+    </div>
+
+    <!-- Available Test Cases -->
+    <div *ngIf="selectedModuleId && availableTestCases().length > 0" class="available-test-cases">
+      <h4>Available Test Cases</h4>
+      <table>
+        <thead>
+          <tr >
+            <th style="background-color:#4873ff; color:aliceblue;width: 28px;" >Select</th>
+            <th style="background-color:#4873ff; color:aliceblue">ID</th>
+            <th style="background-color:#4873ff; color:aliceblue">Use Case</th>
+            <th style="background-color:#4873ff; color:aliceblue">Scenario</th>
+          </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let testCase of availableTestCases()">
+  <td>
+    <input type="checkbox"
+           [checked]="isTestCaseSelected(testCase)"
+           (change)="handleCheckboxChange(testCase, $event)">
+  </td>
+  <td>{{ testCase.testCaseId }}</td>
+  <td>{{ testCase.useCase }}</td>
+  <td>{{ testCase.scenario }}</td>
+</tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Selected Test Cases -->
+    <div *ngIf="selectedTestCases().length > 0" class="selected-test-cases">
+      <h4>Selected Test Cases ({{ selectedTestCases().length }})</h4>
+      <table>
+        <thead>
+          <tr >
+            <th style="background-color:#4873ff; color:aliceblue">ID</th>
+            <th style="background-color:#4873ff; color:aliceblue">Module</th>
+            <th style="background-color:#4873ff; color:aliceblue">Use Case</th>
+            <th style="background-color:#4873ff; color:aliceblue">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let testCase of selectedTestCases()">
+            <td>{{ testCase.testCaseId }}</td>
+            <td>{{ getModuleName(testCase.moduleId) }}</td>
+            <td>{{ testCase.useCase }}</td>
+            <td>
+              <button class="btn-remove" (click)="removeSelectedTestCase(testCase.id)">Remove</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <button class="btn-save" (click)="saveTestSuite()">
+        {{ mode() === 'add' ? 'Create' : 'Update' }} Test Suite
+      </button>
+      <button class="btn-cancel" (click)="cancelEdit()">Cancel</button>
+    </div>
+  </div>
+</div>

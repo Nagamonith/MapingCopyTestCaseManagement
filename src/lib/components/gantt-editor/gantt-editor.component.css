@@ -1,0 +1,271 @@
+/* gantt-editor.component.css
+
+.gantt-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  font-family: Arial, sans-serif;
+}
+
+.top-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.top-bar label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 500;
+}
+
+.top-bar input {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.top-bar button {
+  padding: 0.5rem 1rem;
+  background-color: #242d83d5;
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.top-bar button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+.gantt-editor-container {
+  display: flex;
+  gap: 1rem;
+}
+
+.gantt-grid-section {
+  flex: 1;
+  min-width: 400px;
+}
+
+.gantt-grid-section h4 {
+  margin-bottom: 0.5rem;
+}
+
+.gantt-grid-section label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.gantt-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gantt-grid-table th,
+.gantt-grid-table td {
+  border: 1px solid #ddd;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.gantt-grid-table th {
+  background-color: #f5f5f5;
+}
+
+.gantt-grid-table input[type="date"],
+.gantt-grid-table input[type="number"] {
+  width: 100%;
+  padding: 0.25rem;
+  box-sizing: border-box;
+}
+
+.gantt-grid-table button {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background-color: #28a745;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.gantt-grid-table button:hover {
+  opacity: 0.9;
+}
+
+.gantt-separator {
+  width: 1px;
+  background-color: #ddd;
+}
+
+.gantt-chart-section {
+  flex: 2;
+  position: relative;
+}
+
+.gantt-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+  color: #555;
+}
+
+.view-toggle {
+  margin-top: 1rem;
+}
+
+.view-toggle button {
+  padding: 0.5rem 1rem;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.view-toggle button:hover {
+  opacity: 0.9;
+}
+.form-group {
+  display: flex;
+  align-items: center;
+  margin-right: 16px;
+}
+.form-group label {
+  margin-right: 8px;
+  min-width: 120px;
+}
+.form-group select,
+.form-group input {
+  flex: 1;
+} */
+
+
+.gantt-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  font-family: Arial, sans-serif;
+}
+
+.top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.form-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 250px;
+}
+
+.form-group label {
+  flex: 0 0 120px;
+  font-weight: 500;
+}
+
+.form-group select,
+.form-group input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.top-bar button {
+  background-color: #242d83d5;
+  color: #fff;
+}
+
+.top-bar button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+.view-toggle button {
+  background-color: #6c757d;
+  color: #fff;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.gantt-editor-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.gantt-grid-section {
+  flex: 1 1 400px;
+}
+
+.gantt-grid-section h4 {
+  margin-bottom: 0.5rem;
+}
+
+.gantt-grid-section label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.gantt-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gantt-grid-table th,
+.gantt-grid-table td {
+  border: 1px solid #ddd;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.gantt-grid-table th {
+  background-color: #f5f5f5;
+}
+
+.gantt-grid-table input[type="date"],
+.gantt-grid-table input[type="number"] {
+  width: 100%;
+  padding: 0.25rem;
+  box-sizing: border-box;
+}
+
+.gantt-grid-table button {
+  padding: 0.25rem 0.5rem;
+  background-color: #28a745;
+  color: #fff;
+}
+
+.gantt-chart-section {
+  flex: 2 1 600px;
+  position: relative;
+  min-height: 500px;
+}
+
+.gantt-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+  color: #555;
+}

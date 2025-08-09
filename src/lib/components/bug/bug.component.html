@@ -1,0 +1,164 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<!-- Ribbon Navigation for Sprint Matrix -->
+<div class="ribbon-nav sprint-matrix-ribbon">
+  <div class="ribbon-tabs">
+    <button class="ribbon-tab active" >
+      Sprint Metrics
+    </button>
+    <!-- <button class="ribbon-tab" >Gantt Chart</button>
+    <button class="ribbon-tab" >Releases</button> -->
+  </div>
+  <div class="ribbon-toolbar ribbon-toolbar-icons">
+    <div class="ribbon-action" (click)="openSprintMatrixModal()">
+      <i class="bi bi-grid"></i>
+      <div class="ribbon-action-label">Open Metrics</div>
+
+    </div>
+     <div class="ribbon-action" (click)="openGanttChartModal()">
+      <i class="bi bi-graph-up "></i>
+      <div class="ribbon-action-label">Gantt Chart</div>
+
+    </div>
+   
+</div>
+<div class="ribbon-separator"></div>
+
+<!-- Modal for parameter entry -->
+<div class="modal-backdrop" *ngIf="showSprintMatrixModal"></div>
+<div class="modal" *ngIf="showSprintMatrixModal">
+  <div class="modal-content">
+    <h4>Sprint Metrics Parameters</h4>
+    <div class="mb-3">
+      <label>Bug ID:</label>
+      <input type="number" class="form-control" [(ngModel)]="bugId" placeholder="Enter Bug ID" />
+    </div>
+    <div class="mb-3">
+      <label>Version:</label>
+      <input type="text" class="form-control" [(ngModel)]="version" placeholder="Enter Version" />
+    </div>
+    <div class="mb-3">
+      <button class="btn btn-success me-2" (click)="loadData()">Load</button>
+      <button class="btn btn-secondary" (click)="closeSprintMatrixModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Not Found Modal -->
+<div class="modal-backdrop" *ngIf="notFound"></div>
+<div class="modal" *ngIf="notFound">
+  <div class="modal-content">
+    <h4>No Results Found</h4>
+    <p>No data matched your parameters. Please try again.</p>
+    <button class="btn btn-primary" (click)="closeNotFoundModal()">Back</button>
+  </div>
+</div>
+
+
+<!-- Results shown in main view after loading -->
+<div *ngIf="dataLoaded">
+
+  <!-- Bug Summary Table -->
+   <div class="sprint-matrix-summary-table ms-2">
+    <h5 class="ms-2">Bug Time Summary</h5>
+    <div class="table-responsive stickey-table">
+      <table class="table table-bordered table-sm sticky-header-table">
+        <thead> 
+          <tr>
+            <th>Summary</th>
+            <!-- <th>Bug ID</th> -->
+            <!-- <th>Target Version</th> -->
+                <th>Actual Hours</th>
+            <th>Estimated Hours</th>
+            <th>Analysis</th>
+            <th>Design</th>
+            <th>Coding</th>
+            <th>Testing</th>
+            <th>Demo/Review</th>
+            <th>Release</th>
+            <th>Documentation</th>
+            <th>Training</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let summary of bugSummaries">
+            <td>{{ summary.Summary }}</td>
+            <!-- <td>{{ summary.bug_id }}</td> -->
+            <!-- <td>{{ summary.target_version }}</td> -->
+               <td>{{ summary.Actual_Hours }}</td>
+            <td>{{ summary.Estimates_Hours }}</td>
+          
+            <td>{{ summary.Analysis_hours }}</td>
+            <td>{{ summary.Design_hours }}</td>
+            <td>{{ summary.Coding_hours }}</td>
+            <td>{{ summary.Testing_hours }}</td>
+            <td>{{ summary.Demo_Review_hours }}</td>
+            <td>{{ summary.Release_hours }}</td>
+            <td>{{ summary.Documentation_hours }}</td>
+            <td>{{ summary.Training_hours }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Bug Tasks Table -->
+<div class="sprint-matrix-bottom-row">
+    <!-- Bug Tasks Table (left, takes more space) -->
+    <div class="sprint-matrix-tasks-table ms-2">
+      <h5 class="ms-2">  Bug Tasks Details</h5>
+      <div class="table-responsive">
+      <table class="table table-bordered table-sm sticky-header-table">
+        <thead>
+          <tr>
+              <th>Bug ID</th>
+            <th>Task ID</th>
+            <th>Target Version</th>
+               <th>Start Date</th>
+                <th>End Date</th>
+                 <th>Resource Name</th>
+            <th>Task Resource Name</th>
+                 <th>Relationship Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let task of bugTasks">
+            <td>{{ task.bug_id }}</td>
+            <td>{{ task.task_id }}</td>
+            <td>{{ task.target_version }}</td>
+            <td>{{ task.start_date }}</td>
+            <td>{{ task.end_date }}</td>
+            <td>{{ task.resource_name }}</td>
+            <td>{{ task.task_resource_name }}</td>
+            <td>{{ task.relationship_type }}</td>
+           
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Time Tracking Table -->
+    <div class="sprint-matrix-tracking-table ms-2">
+      <h5>  Total Resource Hours</h5>
+      <div class="table-responsive">
+      <table class="table table-bordered table-sm sticky-header-table">
+        <thead>
+          <tr>
+            <!-- <th>User ID</th> -->
+            <th>Resource Name</th>
+            <th>Total Spent Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let tracking of bugTrackings">
+            <!-- <td>{{ tracking.user_id }}</td> -->
+            <td>{{ tracking.realname }}</td>
+            <td>{{ tracking.total_spent }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,94 @@
+<div class="gantt-editor">
+  <form [formGroup]="ganttForm" class="top-bar" (ngSubmit)="showGanttChart()">
+    <div class="form-group">
+      <label for="projectName">Project Name:</label>
+      <select id="projectName" formControlName="projectName">
+        <option *ngFor="let name of projectNames" [value]="name">{{ name }}</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="targetVersion">Target Version:</label>
+      <input id="targetVersion" name="targetVersion" formControlName="targetVersion" required />
+    </div>
+    <button type="submit" [disabled]="ganttForm.invalid || ganttChartLoading">Load</button>
+    <div class="view-toggle">
+      <button type="button" (click)="toggleView()">
+        {{ showGrid ? 'Show Chart' : 'Show Grid' }}
+      </button>
+    </div>
+  </form>
+
+  <div class="gantt-editor-container">
+    <div *ngIf="showGrid" class="gantt-grid-section">
+      <h4>Task List</h4>
+
+      <label>
+        Filter by Resource:
+        <select [(ngModel)]="selectedResourceId" (change)="onResourceFilterChange()" name="resourceFilter">
+          <option [ngValue]="null">All</option>
+          <option *ngFor="let resource of ganttResources" [ngValue]="resource.id">{{ resource.text }}</option>
+        </select>
+      </label>
+
+      <label>
+        Filter by Type:
+        <select [(ngModel)]="selectedTypeId" (change)="onTypeFilterChange()" name="typeFilter">
+          <option [ngValue]="null">All</option>
+          <option *ngFor="let type of ganttTypes" [ngValue]="type.id">{{ type.text }}</option>
+        </select>
+      </label>
+
+      <table class="gantt-grid-table">
+        <thead>
+          <tr>
+            <th>Summary</th>
+            <th>Type</th>
+            <th>Resource</th>
+            <th>Start Date</th>
+            <th>Original Merge Date</th>
+            <th>Current Merge Date</th>
+         
+            <th>Progress</th>
+            <th>Actions</th>
+            <th>Loader</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let task of filteredTasks" (dblclick)="onRowDblClick(task)">
+            <td>{{ task.title }}</td>
+            <td>{{ task.type }}</td>
+            <td>{{ getResourceName(task.id) }}</td>
+            <td>{{ task.start }}</td>
+            <td>{{ getOriginalMergeDate(task.id) }}</td>
+            <td>
+              <input type="date" [(ngModel)]="task.end" [name]="'end-' + task.id" />
+            </td>
+           
+            <td>
+              <input type="number" [(ngModel)]="task.progress" [name]="'progress-' + task.id" />%
+            </td>
+            <td>
+              <button type="button" style="background: #29307c; color: white;" (click)="saveTask(task)">Save</button>
+            </td>
+            <td>
+              <button type="button" style="background: #29307c; color: white;" (click)="showGanttChart()">Refresh Chart</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="!showGrid" class="gantt-chart-section">
+      
+      <dx-gantt
+        *ngIf="ganttChartReady"
+        [tasks]="{ dataSource: filteredTasks }"
+        [dependencies]="{ dataSource: ganttDependencies }"
+        [resources]="{ dataSource: ganttResources }"
+        [resourceAssignments]="{ dataSource: ganttAssignments }"
+        [height]="500">
+      </dx-gantt>
+      <div *ngIf="ganttChartLoading" class="gantt-loading">Loading chart...</div>
+    </div>
+  </div>
+</div>

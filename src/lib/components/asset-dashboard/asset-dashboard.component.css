@@ -1,0 +1,331 @@
+/* Use this in asset-dashboard.component.css, employee-dashboard.component.css, vendor-dashboard.component.css */
+
+/* Fit to screen */
+.dashboard-root,
+.container {
+  width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 24px 8px;
+  background: #f8f9fa;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+/* Header */
+h2 {
+  font-weight: 600;
+  color: #22223b;
+  margin-bottom: 24px;
+}
+
+/* Buttons */
+button.btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+button.btn-primary, button.btn-success {
+  background: #4361ee;
+  border: none;
+  color: #fff;
+}
+button.btn-primary:hover, button.btn-success:hover {
+  background: #274690;
+}
+button.btn-outline-primary {
+  border: 1.5px solid #4361ee;
+  color: #4361ee;
+  background: #fff;
+}
+button.btn-outline-primary:hover {
+  background: #e0e7ff;
+  color: #274690;
+}
+button.btn-danger {
+  background: white;
+  border: red;
+}
+button.btn-danger:hover {
+  background: red;
+  color: #fff;
+}
+button.btn-secondary {
+  background: #adb5bd;
+  border: none;
+  color: #22223b;
+}
+button.btn-secondary:hover {
+  background: #6c757d;
+  color: #fff;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Table Styles */
+.table {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(34, 34, 59, 0.07);
+  margin-bottom: 24px;
+  width: 100%;
+}
+.table th, .table td {
+  vertical-align: middle !important;
+  padding: 10px 12px !important;
+  border: 1px solid #e0e1dd !important;
+}
+.table thead th {
+  background: #e0e7ff;
+  color: #22223b;
+  font-weight: 600;
+  border-bottom: 2px solid #4361ee !important;
+}
+.table-striped tbody tr:nth-of-type(odd) {
+  background: #f7f7fa;
+}
+.table-hover tbody tr:hover {
+  background: #f0f4f8 !important;
+  transition: background 0.18s;
+}
+.table-bordered {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(34, 34, 59, 0.25);
+  z-index: 1000;
+}
+.modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(34, 34, 59, 0.18);
+  z-index: 1010;
+  min-width: 320px;
+  max-width: 95vw;
+  width: 400px;
+  padding: 32px 24px 24px 24px;
+  animation: modalIn 0.18s;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translate(-50%, -60%) scale(0.98);}
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1);}
+}
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.modal-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.modal-field-row label {
+  min-width: 110px;
+  font-weight: 500;
+  color: #22223b;
+}
+.modal-field-row input.form-control {
+  flex: 1;
+  border-radius: 8px;
+  border: 1px solid #bfc0c0;
+  padding: 8px 12px;
+  font-size: 1rem;
+  background: #f7f7fa;
+  transition: border-color 0.2s;
+}
+.modal-field-row input.form-control:focus {
+  border-color: #a9def9;
+  background: #fff;
+}
+.modal-field-row input[readonly].form-control {
+  background: #e9ecef;
+  color: #6c757d;
+}
+
+/* Miscellaneous */
+.text-danger {
+  color: #e63946 !important;
+  font-size: 0.97rem;
+}
+.mt-3 { margin-top: 1rem !important; }
+.mb-3 { margin-bottom: 1rem !important; }
+.ms-2 { margin-left: 0.5rem !important; }
+.me-2 { margin-right: 0.5rem !important; }
+
+/* Responsive Design */
+@media (max-width: 900px) {
+  .container {
+    padding: 12px 4vw;
+  }
+  .modal {
+    width: 95vw;
+    min-width: unset;
+    padding: 18px 8px 16px 8px;
+  }
+  .modal-content {
+    gap: 10px;
+  }
+}
+@media (max-width: 600px) {
+  .container {
+    padding: 6px 2vw;
+  }
+  .modal {
+    width: 99vw;
+    padding: 10px 2vw 10px 2vw;
+  }
+  .modal-content {
+    gap: 6px;
+  }
+  .modal-field-row label {
+    min-width: 70px;
+    font-size: 0.97rem;
+  }
+}
+/* Custom Dropdown Styles */
+.custom-select-wrapper {
+  position: relative;
+  width: 240px;
+  max-width: 100%;
+  margin-bottom: 18px;
+}
+.custom-select {
+  width: 100%;
+  padding: 8px 36px 8px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #bfc0c0;
+  background: #f7f7fa;
+  font-size: 1rem;
+  color: #22223b;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: none;
+}
+.custom-select:focus {
+  border-color: #4361ee;
+  outline: none;
+  background: #fff;
+}
+.custom-select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #4361ee;
+  font-size: 1.1em;
+}
+.custom-select::-ms-expand {
+  display: none;
+}
+.custom-select:disabled {
+  background: #e9ecef;
+  color: #adb5bd;
+}
+
+
+.asset-details-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.asset-details-row:last-child {
+  border-bottom: none;
+}
+
+.asset-details-label {
+  font-weight: 600;
+  color: #274690;
+  min-width: 120px;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.asset-details-value {
+  color: #22223b;
+  word-break: break-word;
+  flex: 1 1 0;
+  text-align: right;
+}
+
+.modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(34, 34, 59, 0.18);
+  z-index: 1010;
+  min-width: 320px;
+  max-width: 95vw;
+  width: 400px;
+  padding: 32px 24px 24px 24px;
+  animation: modalIn 0.18s;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  overflow-y: auto;
+  max-height: 70vh;
+  min-height: 0;
+}
+
+
+@media (max-width: 900px) {
+  .container {
+    padding: 12px 4vw;
+  }
+  .modal {
+    width: 95vw;
+    min-width: unset;
+    padding: 18px 8px 16px 8px;
+    max-height: 95vh;
+  }
+  .modal-content {
+    gap: 10px;
+    max-height: 75vh;
+  }
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 6px 2vw;
+  }
+  .modal {
+    width: 99vw;
+    padding: 10px 2vw 10px 2vw;
+    max-height: 99vh;
+  }
+  .modal-content {
+    gap: 6px;
+    max-height: 80vh;
+  }
+  .modal-field-row label {
+    min-width: 70px;
+    font-size: 0.97rem;
+  }
+}
+

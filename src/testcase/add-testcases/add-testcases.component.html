@@ -1,0 +1,49 @@
+<div class="module-container">
+  <div class="selection-card">
+    <div class="selection-header">
+      <h3 class="selection-title">
+        <i class="icon"></i>
+        Module Selection
+      </h3>
+      <div *ngIf="productId()" class="product-badge">
+        Product ID: {{ productId() }}
+      </div>
+    </div>
+
+    <div class="selection-body">
+      <div class="form-group">
+        <label class="form-label">Select Module</label>
+        <div class="select-wrapper">
+          <select class="form-select" 
+                  [ngModel]="selectedModule()" 
+                  (ngModelChange)="onModuleChange($event)"
+                  [disabled]="modules().length === 0">
+            <option [ngValue]="null">-- Choose Module --</option>
+            <option *ngFor="let module of modules()" [ngValue]="module.id">
+              {{ module.name }} (v{{ module.version }})
+            </option>
+          </select>
+          <span class="select-arrow">▼</span>
+        </div>
+        <div *ngIf="modules().length === 0" class="no-modules">
+          No modules available for this product
+        </div>
+      </div>
+
+      <button class="btn-export" 
+              (click)="exportToExcel()" 
+              [disabled]="!selectedModule()"
+              title="Export all test cases for selected module">
+        <i class="icon icon-export"></i> Export Module
+      </button>
+    </div>
+  </div>
+
+  <div class="action-card" *ngIf="selectedModule()">
+    <button class="btn btn-primary" 
+            [routerLink]="['/tester/edit-testcases', selectedModule()]" 
+            [queryParams]="{productId: productId()}">
+      <i class="icon icon-edit"></i> Manage Test Cases
+    </button>
+  </div>
+</div>

@@ -1,0 +1,14 @@
+/* ...existing code... */
+
+/* Responsive: mobile */
+@media (max-width: 600px) {
+  .modal-dialog {
+    max-width: 98vw;
+    width: 98vw;
+  }
+  .modal-content {
+    padding: 0.5rem;
+  }
+}
+
+/* ...existing code... */

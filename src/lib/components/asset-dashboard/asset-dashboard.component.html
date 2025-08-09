@@ -1,0 +1,110 @@
+<div class="container">
+  <h2>Asset Dashboard</h2>
+
+  <div class="custom-select-wrapper d-flex align-items-center">
+    <select [(ngModel)]="selectedType" (change)="fetchAssets()" class="form-select custom-select">
+      <option value="" disabled>Select Asset Type</option>
+      <option *ngFor="let type of assetTypes" [value]="type">{{ type }}</option>
+    </select>
+    <span class="custom-select-arrow">&#9662;</span>
+
+  </div>
+  <div>
+    <button class="btn btn-secondary mb-3" (click)="goToPreviousPage()">Back</button>
+  </div>
+      <button class="btn btn-primary ms-2" (click)="viewAllAssets()">View All Assets</button>
+
+  <!-- Table for selected type assets -->
+  <table class="table table-bordered" *ngIf="assets.length && !showAllAssetsGrid">
+    <thead>
+      <tr>
+        <th>AssetId</th>
+        <th>EmployeeId</th>
+        <th>View</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let asset of assets">
+        <td>{{ asset.AssetId }}</td>
+        <td>{{ asset.EmployeeId }}</td>
+        <td>
+          <button class="btn btn-info btn-sm" (click)="openViewAsset(asset)">View</button>
+        </td>
+        <td>
+          <button class="btn btn-warning btn-sm me-2" (click)="openEditAsset(asset)">Edit</button>
+          <button class="btn btn-danger btn-sm" (click)="deleteAsset(asset.Id)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div *ngIf="!assets.length && selectedType && !showAllAssetsGrid">No assets found.</div>
+
+  <!-- All Assets Grid -->
+  <div *ngIf="showAllAssetsGrid">
+    <h4>All Assets</h4>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>AssetId</th>
+          <th>Type</th>
+          <th>EmployeeId</th>
+          <th>View</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let asset of allAssets">
+          <td>{{ asset.AssetId }}</td>
+          <td>{{ asset.Type }}</td>
+          <td>{{ asset.EmployeeId }}</td>
+          <td>
+            <button class="btn btn-info btn-sm" (click)="openViewAsset(asset)">View</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <button class="btn btn-secondary" (click)="showAllAssetsGrid = false">Close</button>
+  </div>
+
+  <!-- View Asset Modal -->
+  <div class="modal-backdrop" *ngIf="showViewModal"></div>
+  <div class="modal" *ngIf="showViewModal">
+    <div class="modal-content">
+      <h5>Asset Details</h5>
+      <div *ngFor="let key of viewAssetKeys" class="asset-details-row">
+        <span class="asset-details-label">{{ key }}</span>
+        <span class="asset-details-value">{{ viewAsset[key] }}</span>
+      </div>
+      <div>
+        <button class="btn btn-secondary" (click)="showViewModal=false">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Asset Modal -->
+  <div class="modal-backdrop" *ngIf="showEditModal"></div>
+  <div class="modal" *ngIf="showEditModal">
+    <div class="modal-content">
+      <h5>Edit Asset</h5>
+      <div *ngFor="let field of editFields; let i = index" class="mb-2">
+        <label class="form-label fw-bold">{{ field.key }}</label>
+        <ng-container *ngIf="field.key === 'EmployeeId'; else normalInput">
+          <select [(ngModel)]="editFields[i].value" class="form-control">
+            <option *ngFor="let emp of employees" [value]="emp.employeeId">
+              {{ emp.name || emp.EmployeeId || emp.employeeId }}
+            </option>
+          </select>
+        </ng-container>
+        <ng-template #normalInput>
+          <input [(ngModel)]="field.value" class="form-control" placeholder="Value" [required]="field.key === 'AssetId'" />
+        </ng-template>
+        <div *ngIf="field.key === 'AssetId' && !field.value" class="text-danger">
+          AssetId is required.
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-success" (click)="saveEditAsset()">Save</button>
+        <button class="btn btn-secondary ms-2" (click)="showEditModal=false">Cancel</button>
+      </div>
+    </div>                                                               

@@ -1,0 +1,43 @@
+
+<div class="add-laptop-fullscreen">
+  <div class="add-laptop-header">
+    <h2><i class="fas fa-laptop-medical me-2"></i>Add New Asset</h2>
+    <button type="button" class="btn btn-secondary" (click)="goToDashboard()">
+      <i class="fas fa-arrow-left me-1"></i> Go to Dashboard
+    </button>
+  </div>
+  <div class="add-laptop-card">
+    <form [formGroup]="laptopForm" (ngSubmit)="onSubmit()">
+      <div class="form-grid">
+        <!-- <div class="form-group" *ngFor="let field of laptopForm.controls | keyvalue">
+          <label [for]="field.key">{{ fieldLabels[field.key] || (field.key | titlecase) }}</label>
+          <input
+            [id]="field.key"
+            [formControlName]="field.key"
+            type="text"
+            class="form-control"
+            placeholder="Enter {{ field.key | titlecase }}"
+          />
+        </div> -->
+        
+<div class="form-group" *ngFor="let key of fieldOrder">
+  <label [for]="key">{{ fieldLabels[key] || (key | titlecase) }}</label>
+  <input
+    [id]="key"
+    [formControlName]="key"
+    type="text"
+    class="form-control"
+    [placeholder]="fieldPlaceholders[key] || ('Enter ' + (key | titlecase))"
+  />
+</div>
+      </div>
+      <div class="actions">
+        <button type="submit" class="btn btn-add" [disabled]="laptopForm.invalid">
+          <i class="fas fa-plus"></i> Add Asset
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+

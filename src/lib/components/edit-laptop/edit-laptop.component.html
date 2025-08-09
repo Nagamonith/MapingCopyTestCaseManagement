@@ -1,0 +1,63 @@
+
+<html>
+<div class="edit-laptop-container">
+  <div class="card">
+    <h2>Edit Asset</h2>
+    <div class="actions1">
+  <button type="button" class="btn btn-secondary" (click)="goToDashboard()">
+    Go to Dashboard
+  </button>
+</div>
+<form [formGroup]="laptopForm" (ngSubmit)="onSubmit()">
+      <div class="form-grid">
+        <div class="form-group" *ngFor="let field of laptopForm.controls | keyvalue">
+          <label [for]="field.key">{{ fieldLabels[field.key] || (field.key | titlecase) }}</label>
+          <input
+            [id]="field.key"
+            [formControlName]="field.key"
+            type="text"
+            class="form-control"
+            [placeholder]="'Enter ' + (fieldLabels[field.key] || (field.key | titlecase))"/>
+        </div>
+      </div>
+      <div class="actions">
+ <button type="button" class="btn btn-secondary" style="margin-right: 10px;" [disabled]="laptopForm.invalid" (click)="openCommentModal()">
+          Add Comment
+         </button>
+        <button type="submit" class="btn btn-secondary" style="margin-right: 10px;" [disabled]="laptopForm.invalid || !commentAdded">
+          Update Asset
+        </button>
+        </div>
+    </form>
+  </div>
+ <div class="modal-backdrop" *ngIf="showCommentModal" (click)="closeCommentModal()"></div>
+<div class="modal" *ngIf="showCommentModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Comment</h5>
+        <button type="button" class="btn-close" (click)="closeCommentModal()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="commentForm" (ngSubmit)="submitComment()">
+          <div class="mb-3">
+            <label class="form-label">Date</label>
+            <input class="form-control" type="date" formControlName="date">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Commentor Name</label>
+            <input class="form-control" formControlName="commentor" placeholder="Enter your name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Comment</label>
+            <textarea class="form-control" formControlName="comment" rows="3" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary"  style="margin-right: 10px;" [disabled]="commentForm.invalid">Save Comment</button>
+          <button type="button" class="btn btn-primary" (click)="closeCommentModal()">Cancel</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</html>

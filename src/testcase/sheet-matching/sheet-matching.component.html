@@ -1,0 +1,147 @@
+<div class="sheet-matching-container">
+  <div class="sheet-header">
+    <h2 class="sheet-title">
+      <mat-icon>description</mat-icon>
+      Mapping Sheet: <strong>{{ sheetName() }}</strong>
+    </h2>
+    <div class="product-context-banner" *ngIf="currentProduct()">
+  <mat-icon>category</mat-icon>
+  <span>Importing to: <strong>{{ currentProduct()?.name }}</strong></span>
+    </div>
+    <button (click)="goBack()" class="back-btn">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Import
+    </button>
+  </div>
+
+  <div *ngIf="errorMessage()" class="error-message">
+    {{ errorMessage() }}
+  </div>
+
+  <div class="mapping-grid">
+    <!-- Test Case Fields Column -->
+    <div class="mapping-column">
+      <div class="column-header">
+        <h3 class="column-title">
+          <mat-icon>label</mat-icon>
+          Test Case Fields
+        </h3>
+        <span class="column-subtitle">{{ sheetColumns().length }} columns detected</span>
+      </div>
+      
+      <div *ngFor="let field of coreMappings()" class="field-item" [class.mapped]="field.mappedTo">
+        <div class="field-header">
+          <div>
+            <span class="field-name">{{ field.label }}</span>
+            <span *ngIf="field.required" class="field-required">(required)</span>
+            <span *ngIf="!field.required" class="field-optional">(optional)</span>
+          </div>
+          <span *ngIf="field.mappedTo" class="mapped-badge">Mapped</span>
+        </div>
+        
+        <select
+          class="field-select"
+          [ngModel]="field.mappedTo"
+          (ngModelChange)="updateMapping(field.field, $event)"
+        >
+          <option value="">-- Select Column --</option>
+          <option *ngFor="let col of sheetColumns()" [value]="col">{{ col }}</option>
+        </select>
+      </div>
+
+      <!-- Custom Attributes Section -->
+      <div class="custom-attributes">
+        <h4 class="column-title">
+          <mat-icon>add_circle</mat-icon>
+          Custom Attributes
+        </h4>
+        <div *ngFor="let attr of customAttributes()" class="custom-attribute-item">
+          <span class="custom-attribute-name">{{ attr }}</span>
+          <button (click)="removeCustomAttribute(attr)" class="remove-attr-btn">
+            <mat-icon>delete</mat-icon>
+          </button>
+          <select
+            class="field-select"
+            [ngModel]="getAttributeMapping(attr)"
+            (ngModelChange)="updateAttributeMapping(attr, $event)"
+          >
+            <option value="">-- Select Column --</option>
+            <option *ngFor="let col of sheetColumns()" [value]="col">{{ col }}</option>
+          </select>
+        </div>
+        <button
+          (click)="openAddAttributeDialog()"
+          class="add-attribute-btn"
+        >
+          <mat-icon>add</mat-icon>
+          Add Custom Attribute
+        </button>
+      </div>
+    </div>
+
+    <!-- Sheet Columns Column -->
+    <div class="mapping-column">
+      <h3 class="column-title">
+        <mat-icon>grid_on</mat-icon>
+        Sheet Columns
+      </h3>
+      <div class="columns-list">
+        <div *ngFor="let col of sheetColumns()" class="sheet-column-item">
+          <mat-icon>drag_indicator</mat-icon>
+          {{ col }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Column -->
+    <div class="mapping-column">
+      <h3 class="column-title">
+        <mat-icon>preview</mat-icon>
+        Preview (First 3 Rows)
+      </h3>
+      
+      <div *ngIf="sheetData() && sheetData().length > 0" class="preview-table-container">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th *ngFor="let field of coreMappings()" [class.mapped]="field.mappedTo">
+                {{ field.label }}
+              </th>
+              <th *ngFor="let attr of customAttributes()">
+                {{ attr }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of sheetData().slice(0, 3)">
+              <td *ngFor="let field of coreMappings()">
+                {{ field.mappedTo ? row[field.mappedTo] : '-' }}
+              </td>
+              <td *ngFor="let attr of customAttributes()">
+                {{ getAttributeMapping(attr) ? row[getAttributeMapping(attr)] : '-' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div *ngIf="sheetData().length === 0" class="empty-preview">
+        <mat-icon>info</mat-icon>
+        <p>No preview available</p>
+        <p>Map some fields to see a preview</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-buttons">
+    <button
+      (click)="importTestCases()"
+      [disabled]="isProcessing()"
+      class="save-btn"
+    >
+      <mat-icon *ngIf="!isProcessing()">save</mat-icon>
+      <mat-icon *ngIf="isProcessing()" class="spinner">hourglass_top</mat-icon>
+      {{ isProcessing() ? 'Importing...' : 'Import Test Cases' }}
+    </button>
+  </div>
+</div>
