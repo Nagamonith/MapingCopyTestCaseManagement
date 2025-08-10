@@ -8,6 +8,8 @@ import {
   signal,
   computed,
   WritableSignal,
+  ElementRef,
+  ViewChild
 } from '@angular/core';
 import {
   FormArray,
@@ -31,7 +33,7 @@ import { TestCase, TestCaseDetailResponse, TestCaseResponse, UpdateTestCaseReque
 import { TestSuite, TestSuiteResponse, TestSuiteWithCasesResponse } from 'src/app/shared/modles/test-suite.model';
 import { TestRun, TestRunResponse, TestRunStatus } from 'src/app/shared/modles/test-run.model';
 import { IdResponse } from 'src/app/shared/modles/product.model';
-import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
+import { catchError, forkJoin, map, of, switchMap, tap, finalize } from 'rxjs';
 
 interface Filter {
   slNo: string;
@@ -70,6 +72,8 @@ interface TestRunProgress {
   styleUrls: ['./modules.component.css']
 })
 export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('tableContainer', { static: false }) tableContainer!: ElementRef;
+
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -93,6 +97,7 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   availableAttributes: string[] = [];
   attributeColumns: TableColumn[] = [];
   testRunProgress: WritableSignal<TestRunProgress> = signal({ total: 0, completed: 0 });
+  isLoading = signal(false);
 
   // Data signals
   modules = signal<ProductModule[]>([]);
@@ -117,6 +122,14 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedTestRun = computed(() => {
     if (!this.selectedTestRunId()) return null;
     return this.testRuns().find(r => r.id === this.selectedTestRunId());
+  });
+
+  filteredModules = computed(() => {
+    const pid = this.selectedProductId();
+    const allModules = this.modules();
+    
+    if (!pid) return allModules;
+    return allModules.filter(m => m.productId === pid);
   });
 
   filter: Filter = {
@@ -173,22 +186,18 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     { field: 'expected', header: 'Expected', width: 200 }
   ];
 
-  // Computed filtered modules
-  filteredModules = computed(() => {
-    const pid = this.selectedProductId();
-    const allModules = this.modules();
-    
-    if (!pid) return allModules;
-    
-    return allModules.filter(m => m.productId === pid);
-  });
-
   ngOnInit(): void {
     this.initializeData();
     
     this.route.queryParamMap.subscribe(queryParams => {
       const productId = queryParams.get('productId');
+      console.log('Product ID from query params:', productId);
       this.selectedProductId.set(productId);
+      
+      // Reload data when product ID changes
+      if (productId) {
+        this.loadAllData();
+      }
       
       const shouldLoadAll = queryParams.get('loadAllVersions') === 'true';
       if (shouldLoadAll && this.selectedModule() && !this.showTestSuites) {
@@ -199,84 +208,175 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.route.paramMap.subscribe((pm: ParamMap) => {
       const modId = pm.get('moduleId');
-      const fallback = this.filteredModules().length ? this.filteredModules()[0].id : null;
-      this.onSelectionChange(modId ?? fallback ?? '');
+      if (modId) {
+        // Delay the selection to ensure data is loaded
+        setTimeout(() => {
+          const fallback = this.filteredModules().length ? this.filteredModules()[0].id : null;
+          this.onSelectionChange(modId ?? fallback ?? '');
+        }, 100);
+      }
     });
 
     window.addEventListener('resize', this.updateScrollButtons.bind(this));
   }
 
   private initializeData(): void {
-    this.loadModules();
-    this.loadTestSuites();
-    this.loadTestRuns();
+    const productId = this.selectedProductId();
+    if (productId) {
+      this.loadAllData();
+    }
   }
 
-  private loadModules(): void {
-    this.moduleService.getModulesByProduct(this.selectedProductId() || '')
-      .pipe(
-        catchError(error => {
-          this.showAlertMessage('Failed to load modules', 'error');
-          return of([]);
-        })
-      )
-      .subscribe(modules => {
-        this.modules.set(modules);
+  private loadAllData(): void {
+    this.isLoading.set(true);
+    
+    forkJoin({
+      modules: this.loadModules(),
+      testSuites: this.loadTestSuites(),
+      testRuns: this.loadTestRuns()
+    }).pipe(
+      finalize(() => {
+        this.isLoading.set(false);
+        this.cdRef.detectChanges();
+      })
+    ).subscribe({
+      next: (data) => {
+        console.log('All data loaded:', data);
         this.extractAvailableAttributes();
         this.initializeAttributeColumns();
-      });
+      },
+      error: (error) => {
+        console.error('Error loading data:', error);
+        this.showAlertMessage('Failed to load data', 'error');
+      }
+    });
   }
-  private convertTestSuiteResponseToTestSuite(response: TestSuiteResponse): TestSuite {
-  return {
-    ...response,
-    testCases: response.testCases?.map(tc => this.convertTestCaseResponseToTestCase(tc)) || []
-  };
-}
-private convertTestCaseResponseToTestCase(response: TestCaseResponse): TestCase {
-  return {
-    ...response,
-    testType: response.testType === 'Manual' || response.testType === 'Automation' 
-      ? response.testType 
-      : 'Manual', // Default to 'Manual' if invalid value
-    result: this.parseTestCaseResult(response.result),
-    steps: [],
-    attributes: [],
-    uploads: [],
-    actual: '',
-    remarks: ''
-  };
-}
 
- private loadTestSuites(): void {
-  this.testSuiteService.getTestSuites(this.selectedProductId() || '')
-    .pipe(
-      catchError(error => {
-        this.showAlertMessage('Failed to load test suites', 'error');
-        return of([] as TestSuiteResponse[]); // Explicitly type the empty array
-      }),
-      map((responses: TestSuiteResponse[]) => 
-        responses.map(res => this.convertTestSuiteResponseToTestSuite(res))
-      )
-    )
-    .subscribe(suites => {
-      this.testSuites.set(suites);
-    });
-}
-private loadTestRuns(): void {
-  this.testRunService.getTestRuns(this.selectedProductId() || '')
-    .pipe(
-      catchError(error => {
-        this.showAlertMessage('Failed to load test runs', 'error');
-        return of([]);
-      }),
-      map((responses: TestRunResponse[]) => 
-        responses.map(res => this.convertTestRunResponseToTestRun(res))
-      )
-    )
-    .subscribe(runs => {
-      this.testRuns.set(runs);
-    });
-}
+  private loadModules(): any {
+    const productId = this.selectedProductId();
+    if (!productId) {
+      this.modules.set([]);
+      return of([]);
+    }
+
+    return this.moduleService.getModulesByProduct(productId)
+      .pipe(
+        tap(modules => {
+          console.log('Loaded modules:', modules);
+          this.modules.set(modules);
+        }),
+        catchError(error => {
+          console.error('Failed to load modules:', error);
+          this.showAlertMessage('Failed to load modules', 'error');
+          this.modules.set([]);
+          return of([]);
+        })
+      );
+  }
+
+  private loadTestSuites(): any {
+    const productId = this.selectedProductId();
+    if (!productId) {
+      this.testSuites.set([]);
+      return of([]);
+    }
+
+    return this.testSuiteService.getTestSuites(productId)
+      .pipe(
+        map((responses: TestSuiteResponse[]) => 
+          responses.map(res => this.convertTestSuiteResponseToTestSuite(res))
+        ),
+        tap(suites => {
+          console.log('Loaded test suites:', suites);
+          this.testSuites.set(suites);
+        }),
+        catchError(error => {
+          console.error('Failed to load test suites:', error);
+          this.showAlertMessage('Failed to load test suites', 'error');
+          this.testSuites.set([]);
+          return of([]);
+        })
+      );
+  }
+
+  private loadTestRuns(): any {
+    const productId = this.selectedProductId();
+    if (!productId) {
+      this.testRuns.set([]);
+      return of([]);
+    }
+
+    return this.testRunService.getTestRuns(productId)
+      .pipe(
+        map((responses: TestRunResponse[]) => 
+          responses.map(res => this.convertTestRunResponseToTestRun(res))
+        ),
+        tap(runs => {
+          console.log('Loaded test runs:', runs);
+          this.testRuns.set(runs);
+        }),
+        catchError(error => {
+          console.error('Failed to load test runs:', error);
+          this.showAlertMessage('Failed to load test runs', 'error');
+          this.testRuns.set([]);
+          return of([]);
+        })
+      );
+  }
+
+  // Conversion methods
+  private convertTestSuiteResponseToTestSuite(response: TestSuiteResponse): TestSuite {
+    return {
+      ...response,
+      testCases: response.testCases?.map(tc => this.convertTestCaseResponseToTestCase(tc)) || []
+    };
+  }
+
+  private convertTestCaseResponseToTestCase(response: TestCaseResponse): TestCase {
+    return {
+      ...response,
+      testType: response.testType === 'Manual' || response.testType === 'Automation' 
+        ? response.testType 
+        : 'Manual',
+      result: this.parseTestCaseResult(response.result),
+      steps: [],
+      attributes: [],
+      uploads: [],
+      actual: '',
+      remarks: ''
+    };
+  }
+
+  private convertTestRunResponseToTestRun(response: TestRunResponse): TestRun {
+    return {
+      ...response,
+      status: response.status as TestRunStatus,
+      testSuites: response.testSuites || []
+    };
+  }
+
+  private convertTestCaseDetailToTestCase(response: TestCaseDetailResponse): TestCase {
+    return {
+      ...response,
+      testType: this.parseTestType(response.testType),
+      result: this.parseTestCaseResult(response.result),
+      steps: response.steps || [],
+      attributes: response.attributes || [],
+      uploads: response.uploads || [],
+      actual: response.actual || '',
+      remarks: response.remarks || ''
+    };
+  }
+
+  private parseTestType(testType: string): 'Manual' | 'Automation' {
+    return testType === 'Manual' || testType === 'Automation' ? testType : 'Manual';
+  }
+
+  private parseTestCaseResult(result?: string): TestCaseResult {
+    return result === 'Pass' || result === 'Fail' || result === 'Blocked' 
+      ? result 
+      : 'Pending';
+  }
 
   ngAfterViewInit(): void {
     setTimeout(() => {
@@ -292,6 +392,207 @@ private loadTestRuns(): void {
     window.removeEventListener('resize', this.updateScrollButtons.bind(this));
     if (this.alertTimeout) {
       clearTimeout(this.alertTimeout);
+    }
+  }
+
+  // Toggle selection mode methods
+  toggleSelectionMode(showSuites: boolean, showRuns: boolean): void {
+    this.showTestSuites = showSuites;
+    this.showTestRuns = showRuns;
+    this.selectedModule.set(null);
+    this.selectedTestRunId.set(null);
+    this.viewingSuiteId.set(null);
+    this.selectedVersion = '';
+    this.versionTestCases.set([]);
+    this.showViewTestCases = false;
+    this.showStartTesting = false;
+    this.formArray.clear();
+    this.selectedSuiteIds = [];
+    this.allSuitesSelected = false;
+    
+    console.log('Toggle selection mode:', { showSuites, showRuns });
+    console.log('Available modules:', this.filteredModules());
+    console.log('Available test suites:', this.testSuites());
+    console.log('Available test runs:', this.testRuns());
+  }
+
+  // Selection change method
+  onSelectionChange(id: string): void {
+    console.log('Selection changed to:', id);
+    
+    if (!id) {
+      this.selectedModule.set(null);
+      return;
+    }
+
+    // Reset view states when changing selection
+    this.showViewTestCases = false;
+    this.showStartTesting = false;
+    this.formArray.clear();
+    this.uploads = [];
+
+    if (this.showTestSuites) {
+      this.handleTestSuiteSelection(id);
+    } else if (this.showTestRuns) {
+      this.onTestRunChange(id);
+    } else {
+      this.handleModuleSelection(id);
+    }
+  }
+
+  private handleModuleSelection(id: string): void {
+    console.log('Handling module selection:', id);
+    console.log('Filtered modules:', this.filteredModules());
+    
+    const moduleExists = this.filteredModules().some(m => m.id === id);
+    console.log('Module exists:', moduleExists);
+    
+    if (!moduleExists) {
+      console.log('Module not found, resetting');
+      this.selectedModule.set(null);
+      return;
+    }
+
+    this.selectedModule.set(id);
+    this.loadModuleVersions(id);
+  }
+
+  private loadModuleVersions(moduleId: string): void {
+    const productId = this.selectedProductId();
+    if (!productId) return;
+
+    console.log('Loading versions for module:', moduleId);
+    
+    this.moduleService.getModuleById(productId, moduleId)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load module versions:', error);
+          this.showAlertMessage('Failed to load module versions', 'error');
+          return of(null);
+        })
+      )
+      .subscribe(module => {
+        if (module) {
+          console.log('Module loaded:', module);
+          this.availableVersions = [module.version];
+          this.loadTestCasesForModule(moduleId, module.version);
+        }
+      });
+  }
+
+  private loadTestCasesForModule(moduleId: string, version: string): void {
+    console.log('Loading test cases for module:', moduleId, 'version:', version);
+    
+    this.testCaseService.getTestCasesByModule(moduleId)
+      .pipe(
+        catchError(() => of([])),
+        switchMap(list => {
+          console.log('Test cases list:', list);
+          if (!list || list.length === 0) return of([] as TestCaseDetailResponse[]);
+          
+          return forkJoin(
+            list.map(tc => this.testCaseService.getTestCaseDetail(moduleId, tc.id).pipe(
+              catchError(() => of(null))
+            ))
+          ).pipe(map(details => details.filter(d => !!d) as TestCaseDetailResponse[]));
+        })
+      )
+      .subscribe(casesDetail => {
+        console.log('Test case details:', casesDetail);
+        const cases = casesDetail.map(res => this.convertTestCaseDetailToTestCase(res));
+        this.testCasePool.set(cases);
+        const filteredCases = cases.filter(tc => tc.moduleId === moduleId && tc.version === version);
+        this.versionTestCases.set(filteredCases);
+        this.initializeFormForTestCases();
+      });
+  }
+
+  private handleTestSuiteSelection(suiteId: string): void {
+    console.log('Handling test suite selection:', suiteId);
+    const productId = this.selectedProductId();
+    if (!productId) return;
+    
+    const suiteExists = this.testSuites().some(s => s.id === suiteId);
+    console.log('Suite exists:', suiteExists);
+    
+    if (!suiteExists) {
+      this.selectedModule.set(null);
+      return;
+    }
+    
+    this.testSuiteService.getTestSuiteById(productId, suiteId)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load test suite:', error);
+          this.showAlertMessage('Failed to load test suite', 'error');
+          return of(null);
+        })
+      )
+      .subscribe(suite => {
+        if (suite) {
+          this.selectedModule.set(suiteId);
+          this.selectedVersion = '';
+          
+          this.loadTestCasesForSuite(suiteId);
+        }
+      });
+  }
+
+  private loadTestCasesForSuite(suiteId: string): void {
+    console.log('Loading test cases for suite:', suiteId);
+    
+    this.testSuiteService.getTestSuiteWithCases(suiteId)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load test cases for suite:', error);
+          this.showAlertMessage('Failed to load test cases for suite', 'error');
+          const productId = this.selectedProductId() || '';
+          return of({
+            id: suiteId,
+            productId: productId,
+            name: 'Error loading suite',
+            description: '',
+            isActive: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            testCases: []
+          });
+        }),
+        map(response => ({
+          ...response,
+          testCases: (response.testCases || []).map(tc => 
+            this.convertTestCaseDetailToTestCase({
+              ...tc,
+              expected: (tc as any).expected || ''
+            } as TestCaseDetailResponse)
+          )
+        }))
+      )
+      .subscribe(response => {
+        console.log('Suite test cases loaded:', response.testCases);
+        this.versionTestCases.set(response.testCases);
+        this.initializeFormForTestCases();
+      });
+  }
+
+  // Test Run methods
+  onTestRunChange(runId: string): void {
+    console.log('Test run changed to:', runId);
+    console.log('Available test runs:', this.testRuns());
+    
+    this.selectedTestRunId.set(runId);
+    this.viewingSuiteId.set(null);
+    this.selectedSuiteIds = [];
+    this.allSuitesSelected = false;
+    
+    if (runId) {
+      const run = this.testRuns().find(r => r.id === runId);
+      console.log('Selected test run:', run);
+      this.updateTestRunProgress();
+    } else {
+      this.versionTestCases.set([]);
+      this.showViewTestCases = false;
+      this.showStartTesting = false;
     }
   }
 
@@ -372,14 +673,57 @@ private loadTestRuns(): void {
   }
 
   // View and start testing methods
+  handleViewAction(): void {
+    console.log('Handle view action');
+    if (this.showTestRuns && this.selectedTestRun()?.testSuites?.length) {
+      this.viewAllSelectedCases();
+    } else {
+      this.showViewTestCases = true;
+      this.showStartTesting = false;
+    }
+  }
+
+  handleStartTesting(): void {
+    console.log('Handle start testing');
+    if (this.showTestRuns) {
+      this.startTestingSelected();
+    } else {
+      this.showStartTesting = true;
+      this.showViewTestCases = false;
+      this.initializeFormForTestCases();
+    }
+  }
+
+  hasTestCasesToView(): boolean {
+    if (this.showTestRuns) {
+      return !!this.selectedTestRun()?.testSuites?.length;
+    }
+    
+    if (this.selectedModule()) {
+      if (this.showTestSuites) {
+        const suite = this.testSuites().find(s => s.id === this.selectedModule());
+        return !!(suite?.testCases && suite.testCases.length > 0);
+      } else {
+        const moduleCases = this.testCasePool().filter(
+          tc => tc.moduleId === this.selectedModule()
+        );
+        return moduleCases.length > 0;
+      }
+    }
+    
+    return false;
+  }
+
   viewAllSelectedCases(): void {
     let cases: TestCase[] = [];
     
-    if (this.allSuitesSelected) {
+    if (this.allSuitesSelected || this.selectedSuiteIds.length === 0) {
+      // If all suites selected or none selected, show all cases from the run
       cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
         this.getTestCasesForSuite(suite.id)
       ) || [];
     } else {
+      // Show only selected suites
       cases = this.selectedSuiteIds.flatMap(suiteId => 
         this.getTestCasesForSuite(suiteId)
       );
@@ -394,11 +738,13 @@ private loadTestRuns(): void {
   startTestingSelected(): void {
     let cases: TestCase[] = [];
     
-    if (this.allSuitesSelected) {
+    if (this.allSuitesSelected || this.selectedSuiteIds.length === 0) {
+      // If all suites selected or none selected, show all cases from the run
       cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
         this.getTestCasesForSuite(suite.id)
       ) || [];
     } else {
+      // Show only selected suites
       cases = this.selectedSuiteIds.flatMap(suiteId => 
         this.getTestCasesForSuite(suiteId)
       );
@@ -408,197 +754,6 @@ private loadTestRuns(): void {
     this.showStartTesting = true;
     this.showViewTestCases = false;
     this.initializeFormForTestCases();
-  }
-
-  toggleSelectionMode(showSuites: boolean, showRuns: boolean): void {
-    this.showTestSuites = showSuites;
-    this.showTestRuns = showRuns;
-    this.selectedModule.set(null);
-    this.selectedTestRunId.set(null);
-    this.viewingSuiteId.set(null);
-    this.selectedVersion = '';
-    this.versionTestCases.set([]);
-    this.showViewTestCases = false;
-    this.showStartTesting = false;
-    this.formArray.clear();
-    this.selectedSuiteIds = [];
-    this.allSuitesSelected = false;
-    
-    if (showRuns) {
-      this.loadTestRuns();
-    }
-  }
-
-  onTestRunChange(runId: string): void {
-    this.selectedTestRunId.set(runId);
-    this.viewingSuiteId.set(null);
-    this.selectedSuiteIds = [];
-    this.allSuitesSelected = false;
-    
-    if (runId) {
-      this.updateTestRunProgress();
-    } else {
-      this.versionTestCases.set([]);
-      this.showViewTestCases = false;
-      this.showStartTesting = false;
-    }
-  }
-
-  // Selection change method
-  onSelectionChange(id: string): void {
-    if (!id) return;
-
-    // Reset view states when changing selection
-    this.showViewTestCases = false;
-    this.showStartTesting = false;
-    this.formArray.clear();
-    this.uploads = [];
-
-    if (this.showTestSuites) {
-      this.handleTestSuiteSelection(id);
-    } else if (this.showTestRuns) {
-      this.onTestRunChange(id);
-    } else {
-      this.handleModuleSelection(id);
-    }
-  }
-
-  private handleModuleSelection(id: string): void {
-    if (!this.filteredModules().some(m => m.id === id)) return;
-
-    this.selectedModule.set(id);
-    this.loadModuleVersions(id);
-  }
-
-  private loadModuleVersions(moduleId: string): void {
-    this.moduleService.getModuleById(this.selectedProductId() || '', moduleId)
-      .pipe(
-        catchError(error => {
-          this.showAlertMessage('Failed to load module versions', 'error');
-          return of(null);
-        })
-      )
-      .subscribe(module => {
-        if (module) {
-          this.availableVersions = [module.version];
-          this.loadTestCasesForModule(moduleId, module.version);
-        }
-      });
-  }
-  // Helper function to convert TestRunResponse to TestRun
-private convertTestRunResponseToTestRun(response: TestRunResponse): TestRun {
-  return {
-    ...response,
-    status: response.status as TestRunStatus,
-    testSuites: response.testSuites || []
-  };
-}
-
-// Helper function to convert TestCaseDetailResponse to TestCase
-private convertTestCaseDetailToTestCase(response: TestCaseDetailResponse): TestCase {
-  // For detailed responses
-  return {
-    ...response,
-    testType: this.parseTestType(response.testType),
-    result: this.parseTestCaseResult(response.result),
-    steps: response.steps || [],
-    attributes: response.attributes || [],
-    uploads: response.uploads || [],
-    actual: response.actual || '',
-    remarks: response.remarks || ''
-  };
-}
-  private loadTestCasesForModule(moduleId: string, version: string): void {
-    this.testCaseService.getTestCasesByModule(moduleId)
-      .pipe(
-        catchError(() => of([])),
-        switchMap(list => {
-          if (!list || list.length === 0) return of([] as TestCaseDetailResponse[]);
-          return forkJoin(
-            list.map(tc => this.testCaseService.getTestCaseDetail(moduleId, tc.id).pipe(
-              catchError(() => of(null))
-            ))
-          ).pipe(map(details => details.filter(d => !!d) as TestCaseDetailResponse[]));
-        })
-      )
-      .subscribe(casesDetail => {
-        const cases = casesDetail.map(res => this.convertTestCaseDetailToTestCase(res));
-        this.testCasePool.set(cases);
-        const filteredCases = cases.filter(tc => tc.moduleId === moduleId && tc.version === version);
-        this.versionTestCases.set(filteredCases);
-        this.initializeFormForTestCases();
-      });
-  }
-// First, let's create proper type conversion functions at the top of your component
-
-
-
-// Helper methods for type-safe parsing
-private parseTestType(testType: string): 'Manual' | 'Automation' {
-  return testType === 'Manual' || testType === 'Automation' ? testType : 'Manual';
-}
-
-private parseTestCaseResult(result?: string): TestCaseResult {
-  return result === 'Pass' || result === 'Fail' || result === 'Blocked' 
-    ? result 
-    : 'Pending';
-}
-
-private getDefaultTestSuiteWithCases(suiteId: string, productId: string): TestSuiteWithCasesResponse {
-  return {
-    id: suiteId,
-    productId: productId,
-    name: 'Error loading suite',
-    description: '',
-    isActive: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    testCases: []
-  };
-}
-
-private handleTestSuiteSelection(suiteId: string): void {
-  const productId = this.selectedProductId() || '';
-  
-  this.testSuiteService.getTestSuiteById(productId, suiteId)
-    .pipe(
-      catchError(error => {
-        this.showAlertMessage('Failed to load test suite', 'error');
-        return of(null);
-      })
-    )
-    .subscribe(suite => {
-      if (suite) {
-        this.selectedModule.set(suiteId);
-        this.selectedVersion = '';
-        this.showViewTestCases = true;
-        this.showStartTesting = false;
-
-        this.testSuiteService.getTestSuiteWithCases(suiteId)
-          .pipe(
-            catchError(error => {
-              this.showAlertMessage('Failed to load test cases for suite', 'error');
-              return of({
-                ...this.getDefaultTestSuiteWithCases(suiteId, productId),
-                testCases: []
-              });
-            }),
-            map(response => ({
-  ...response,
-  testCases: (response.testCases || []).map(tc => 
-    this.convertTestCaseDetailToTestCase({
-      ...tc,
-      expected: (tc as any).expected || '' // Provide default if missing
-    } as TestCaseDetailResponse)
-  )
-}))
-          )
-          .subscribe(response => {
-            this.versionTestCases.set(response.testCases);
-            this.initializeFormForTestCases();
-          });
-      }
-    });
   }
 
   private initializeFormForTestCases(): void {
@@ -649,40 +804,6 @@ private handleTestSuiteSelection(suiteId: string): void {
     this.initializeFormForTestCases();
   }
 
-  handleViewAction(): void {
-    if (this.showTestRuns && this.selectedTestRun()?.testSuites?.length && !this.viewingSuiteId()) {
-      this.viewAllSelectedCases();
-    } else {
-      this.showViewTestCases = true;
-      this.showStartTesting = false;
-    }
-  }
-
-  handleStartTesting(): void {
-    if (this.showTestRuns) {
-      this.startTestingSelected();
-    } else {
-      this.showStartTesting = true;
-      this.showViewTestCases = false;
-      this.initializeFormForTestCases();
-    }
-  }
-
-  hasTestCasesToView(): boolean {
-    if (this.showTestRuns) {
-      return !!this.selectedTestRun()?.testSuites?.length;
-    }
-    
-    if (this.selectedModule()) {
-      const moduleCases = this.testCasePool().filter(
-        tc => tc.moduleId === this.selectedModule()
-      );
-      return moduleCases.length > 0;
-    }
-    
-    return false;
-  }
-
   // Save method
   onSave(): void {
     const formValues = this.formArray.value;
@@ -730,74 +851,85 @@ private handleTestSuiteSelection(suiteId: string): void {
 
       // Reload test cases to get fresh data
       if (this.selectedModule()) {
-        this.loadTestCasesForModule(this.selectedModule()!, this.selectedVersion);
+        if (this.showTestSuites) {
+          this.loadTestCasesForSuite(this.selectedModule()!);
+        } else if (!this.showTestRuns) {
+          this.loadTestCasesForModule(this.selectedModule()!, this.selectedVersion);
+        }
       }
     });
   }
 
-private updateTestRunProgress(): void {
-  const selectedRun = this.selectedTestRun();
-  if (!selectedRun) return;
+  private updateTestRunProgress(): void {
+    const selectedRun = this.selectedTestRun();
+    if (!selectedRun) return;
 
-  const suiteIds = selectedRun.testSuites.map(suite => suite.id);
-  const runCases: TestCase[] = [];
-  const productId = selectedRun.productId;
-  
-  const suiteRequests = suiteIds.map(suiteId => 
-    this.testSuiteService.getTestSuiteWithCases(suiteId)
-      .pipe(
-        catchError(error => {
-          console.error('Failed to load test suite cases:', error);
-          return of({
-            ...this.getDefaultTestSuiteWithCases(suiteId, productId),
-            testCases: []
-          });
-        }),
-        map(response => ({
-          ...response,
-          testCases: (response.testCases || []).map(tc => 
-            this.convertTestCaseDetailToTestCase(tc)
-          )
-        }))
-      )
-  );
+    const suiteIds = selectedRun.testSuites.map(suite => suite.id);
+    const runCases: TestCase[] = [];
+    const productId = selectedRun.productId;
+    
+    const suiteRequests = suiteIds.map(suiteId => 
+      this.testSuiteService.getTestSuiteWithCases(suiteId)
+        .pipe(
+          catchError(error => {
+            console.error('Failed to load test suite cases:', error);
+            return of({
+              id: suiteId,
+              productId: productId,
+              name: 'Error loading suite',
+              description: '',
+              isActive: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              testCases: []
+            });
+          }),
+          map(response => ({
+            ...response,
+            testCases: (response.testCases || []).map(tc => 
+              this.convertTestCaseDetailToTestCase(tc)
+            )
+          }))
+        )
+    );
 
-  forkJoin(suiteRequests).subscribe({
-    next: responses => {
-      responses.forEach(response => {
-        runCases.push(...response.testCases);
-      });
+    forkJoin(suiteRequests).subscribe({
+      next: responses => {
+        responses.forEach(response => {
+          runCases.push(...response.testCases);
+        });
 
-      const total = runCases.length;
-      const completed = runCases.filter(tc =>
-        tc.result === 'Pass' || tc.result === 'Fail'
-      ).length;
+        const total = runCases.length;
+        const completed = runCases.filter(tc =>
+          tc.result === 'Pass' || tc.result === 'Fail'
+        ).length;
 
-      this.testRunProgress.set({ total, completed });
+        this.testRunProgress.set({ total, completed });
 
-      let status: TestRunStatus = 'Not Started';
-      if (total > 0 && completed === total) {
-        status = 'Completed';
-      } else if (completed > 0) {
-        status = 'In Progress';
+        let status: TestRunStatus = 'Not Started';
+        if (total > 0 && completed === total) {
+          status = 'Completed';
+        } else if (completed > 0) {
+          status = 'In Progress';
+        }
+
+        this.testRunService.updateTestRunStatus(
+          productId,
+          this.selectedTestRunId()!,
+          status 
+        ).pipe(
+          catchError(error => {
+            console.error('Failed to update test run status:', error);
+            return of(null);
+          })
+        ).subscribe(() => this.loadTestRuns());
+      },
+      error: error => {
+        console.error('Error loading test suite cases:', error);
       }
+    });
+  }
 
-      this.testRunService.updateTestRunStatus(
-        productId,
-        this.selectedTestRunId()!,
-         status 
-      ).pipe(
-        catchError(error => {
-          console.error('Failed to update test run status:', error);
-          return of(null);
-        })
-      ).subscribe(() => this.loadTestRuns());
-    },
-    error: error => {
-      console.error('Error loading test suite cases:', error);
-    }
-  });
-}
   // Attribute handling methods
   extractAvailableAttributes(): void {
     const allAttributes = new Set<string>();
@@ -869,6 +1001,50 @@ private updateTestRunProgress(): void {
     return value !== undefined && value !== null ? value.toString() : '';
   }
 
+  // Form methods
+  formGroups(): FormGroup[] {
+    return this.formArray.controls as FormGroup[];
+  }
+
+  getFormControl(index: number, controlName: string): FormControl {
+    const control = this.formGroups()[index].get(controlName);
+    if (!control) throw new Error(`Form control '${controlName}' not found`);
+    return control as FormControl;
+  }
+
+  // Filtering methods
+  filteredTestCases(): TestCase[] {
+    const mod = this.selectedModule();
+    return mod && !this.showTestSuites && !this.showTestRuns
+      ? this.testCasePool().filter(tc => tc.moduleId === mod) 
+      : [];
+  }
+
+  filteredAndSearchedTestCases(): TestCase[] {
+    return (this.showTestSuites || this.showTestRuns ? this.versionTestCases() : this.filteredTestCases())
+      .filter((tc, i) => {
+        const form = this.formGroups()[i];
+        if (!form) return true;
+        
+        const matchesSlNo = !this.filter.slNo || 
+          (i + 1).toString().includes(this.filter.slNo);
+        const matchesTestCaseId = !this.filter.testCaseId || 
+          tc.testCaseId.toLowerCase().includes(this.filter.testCaseId.toLowerCase());
+        const matchesUseCase = !this.filter.useCase || 
+          tc.useCase.toLowerCase().includes(this.filter.useCase.toLowerCase());
+        const matchesResult = !this.filter.result || 
+          form.get('result')?.value === this.filter.result;
+        
+        const matchesAttribute = !this.filter.attributeKey || !this.filter.attributeValue ||
+          this.getAttributeValue(tc, this.filter.attributeKey)
+            .toLowerCase()
+            .includes(this.filter.attributeValue.toLowerCase());
+
+        return matchesSlNo && matchesTestCaseId && matchesUseCase && matchesResult && matchesAttribute;
+      });
+  }
+
+  // Upload methods
   onUpload(event: Event, index: number): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
@@ -893,42 +1069,37 @@ private updateTestRunProgress(): void {
     }
   }
 
-  filteredTestCases(): TestCase[] {
-    const mod = this.selectedModule();
-    return mod && !this.showTestSuites && !this.showTestRuns
-      ? this.testCasePool().filter(tc => tc.moduleId === mod) 
-      : [];
+  onImageLoad(event: Event, rowIndex: number, fileIndex: number): void {
+    if (this.uploads[rowIndex] && this.uploads[rowIndex][fileIndex]) {
+      this.uploads[rowIndex][fileIndex].loaded = true;
+      this.cdRef.detectChanges();
+    }
   }
 
-  // Filtering method with attribute support
-  filteredAndSearchedTestCases(): TestCase[] {
-    return (this.showTestSuites || this.showTestRuns ? this.versionTestCases() : this.filteredTestCases())
-      .filter((tc, i) => {
-        const form = this.formGroups()[i];
-        const matchesSlNo = !this.filter.slNo || 
-          (i + 1).toString().includes(this.filter.slNo);
-        const matchesTestCaseId = !this.filter.testCaseId || 
-          tc.testCaseId.toLowerCase().includes(this.filter.testCaseId.toLowerCase());
-        const matchesUseCase = !this.filter.useCase || 
-          tc.useCase.toLowerCase().includes(this.filter.useCase.toLowerCase());
-        const matchesResult = !this.filter.result || 
-          form.get('result')?.value === this.filter.result;
-        
-        const matchesAttribute = !this.filter.attributeKey || !this.filter.attributeValue ||
-          this.getAttributeValue(tc, this.filter.attributeKey)
-            .toLowerCase()
-            .includes(this.filter.attributeValue.toLowerCase());
-
-        return matchesSlNo && matchesTestCaseId && matchesUseCase && matchesResult && matchesAttribute;
-      });
+  removeUpload(rowIndex: number, fileIndex: number): void {
+    if (this.uploads[rowIndex]) {
+      this.uploads[rowIndex].splice(fileIndex, 1);
+      this.cdRef.detectChanges();
+    }
   }
 
-  formGroups(): FormGroup[] {
-    return this.formArray.controls as FormGroup[];
+  isImage(url: string): boolean {
+    if (!url) return false;
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  }
+
+  getFileName(url: string): string {
+    if (!url) return '';
+    const parts = url.split('/');
+    const lastPart = parts[parts.length - 1];
+    const filenamePart = lastPart.split(';')[0];
+    return filenamePart.length > 20 
+      ? filenamePart.substring(0, 17) + '...' 
+      : filenamePart;
   }
 
   // Popup methods
-  openPopup(index: number, field: 'actual' | 'remarks', event: MouseEvent) {
+  openPopup(index: number, field: 'actual' | 'remarks', event: MouseEvent): void {
     event.stopPropagation();
 
     if (!(this.isPopupOpen && this.popupIndex === index && this.popupField === field)) {
@@ -953,7 +1124,7 @@ private updateTestRunProgress(): void {
     }
   }
 
-  closePopup(index: number) {
+  closePopup(index: number): void {
     if (this.popupIndex === index) {
       this.isPopupOpen = false;
       this.popupIndex = null;
@@ -963,13 +1134,7 @@ private updateTestRunProgress(): void {
     }
   }
 
-  getFormControl(index: number, controlName: string): FormControl {
-    const control = this.formGroups()[index].get(controlName);
-    if (!control) throw new Error(`Form control '${controlName}' not found`);
-    return control as FormControl;
-  }
-
-  private handleDocumentClick(event: MouseEvent) {
+  private handleDocumentClick(event: MouseEvent): void {
     if (this.isPopupOpen && this.popupIndex !== null) {
       const target = event.target as HTMLElement;
       const isInsidePopup = target.closest('.popup-box');
@@ -981,7 +1146,7 @@ private updateTestRunProgress(): void {
     }
   }
 
-  // Scroll and resize methods
+  // Table scroll and resize methods
   scrollTable(offset: number): void {
     if (!this.scrollContainer) return;
     this.scrollContainer.scrollLeft += offset;
@@ -1025,6 +1190,7 @@ private updateTestRunProgress(): void {
     document.removeEventListener('mouseup', this.boundStopResize);
   }
 
+  // Utility methods
   copyTestCaseLink(testCaseId: string): void {
     const copyUrl = `${window.location.origin}/tester/view-testcase/${testCaseId}`;
     navigator.clipboard.writeText(copyUrl)
@@ -1037,6 +1203,34 @@ private updateTestRunProgress(): void {
       });
   }
 
+  backToSuiteList(): void {
+    this.showStartTesting = false;
+    this.showViewTestCases = false;
+    this.formArray.clear();
+    this.uploads = [];
+    this.selectedSuiteIds = [];
+    this.allSuitesSelected = false;
+  }
+
+  // Progress methods for test runs
+  getRunCompletionPercentage(): number {
+    if (!this.selectedTestRunId()) return 0;
+    
+    const total = this.testRunProgress().total;
+    const completed = this.testRunProgress().completed;
+    
+    return total > 0 ? Math.round((completed / total) * 100) : 0;
+  }
+
+  getCompletedCaseCount(): number {
+    return this.testRunProgress().completed;
+  }
+
+  getTotalCaseCount(): number {
+    return this.testRunProgress().total;
+  }
+
+  // Alert methods
   showAlertMessage(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success'): void {
     this.alertMessage = message;
     this.alertType = type;
@@ -1059,56 +1253,7 @@ private updateTestRunProgress(): void {
     }
   }
 
-  onImageLoad(event: Event, rowIndex: number, fileIndex: number) {
-    this.uploads[rowIndex][fileIndex].loaded = true;
-    this.cdRef.detectChanges();
-  }
-
-  removeUpload(rowIndex: number, fileIndex: number) {
-    this.uploads[rowIndex].splice(fileIndex, 1);
-    this.cdRef.detectChanges();
-  }
-
-  getRunCompletionPercentage(): number {
-    if (!this.selectedTestRunId()) return 0;
-    
-    const total = this.testRunProgress().total;
-    const completed = this.testRunProgress().completed;
-    
-    return total > 0 ? Math.round((completed / total) * 100) : 0;
-  }
-
-  getCompletedCaseCount(): number {
-    return this.testRunProgress().completed;
-  }
-
-  getTotalCaseCount(): number {
-    return this.testRunProgress().total;
-  }
-
-  isImage(url: string): boolean {
-    if (!url) return false;
-    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-  }
-
-  getFileName(url: string): string {
-    if (!url) return '';
-    const parts = url.split('/');
-    const lastPart = parts[parts.length - 1];
-    const filenamePart = lastPart.split(';')[0];
-    return filenamePart.length > 20 
-      ? filenamePart.substring(0, 17) + '...' 
-      : filenamePart;
-  }
-
-  backToSuiteList(): void {
-    this.showStartTesting = false;
-    this.showViewTestCases = false;
-    this.formArray.clear();
-    this.uploads = [];
-  }
-
-  // Additional attribute management methods
+  // Additional utility methods for attribute management
   onAttributeFilterChange(): void {
     this.cdRef.detectChanges();
   }
@@ -1131,7 +1276,6 @@ private updateTestRunProgress(): void {
     return !!this.filter.attributeKey;
   }
 
-  // Utility method to get all unique attribute values for a specific key
   getAttributeValues(key: string): string[] {
     const values = new Set<string>();
     this.versionTestCases().forEach(tc => {
@@ -1143,7 +1287,6 @@ private updateTestRunProgress(): void {
     return Array.from(values).sort();
   }
 
-  // Method to toggle attribute column visibility
   toggleAttributeColumn(key: string): void {
     const exists = this.attributeColumns.some(col => col.field === `attr_${key}`);
     if (exists) {
@@ -1157,7 +1300,6 @@ private updateTestRunProgress(): void {
     return this.attributeColumns.some(col => col.field === `attr_${key}`);
   }
 
-  // Method to get all combined columns (regular + attribute)
   getAllViewColumns(): TableColumn[] {
     return [...this.viewColumns, ...this.attributeColumns];
   }
@@ -1166,18 +1308,15 @@ private updateTestRunProgress(): void {
     return [...this.testColumns, ...this.attributeColumns];
   }
 
-  // Enhanced method to get module name for display
   getModuleName(moduleId: string): string {
     const module = this.modules().find(m => m.id === moduleId);
     return module?.name || 'Unknown Module';
   }
 
-  // Method to check if current view has test cases with attributes
   hasTestCasesWithAttributes(): boolean {
     return this.versionTestCases().some(tc => tc.attributes && tc.attributes.length > 0);
   }
 
-  // Method to get attribute statistics
   getAttributeStats(): { [key: string]: { [value: string]: number } } {
     const stats: { [key: string]: { [value: string]: number } } = {};
     
@@ -1196,7 +1335,6 @@ private updateTestRunProgress(): void {
     return stats;
   }
 
-  // Method to export test cases with attributes
   exportTestCasesWithAttributes(): void {
     const cases = this.filteredAndSearchedTestCases();
     const csvContent = this.generateCsvContent(cases);
@@ -1241,7 +1379,6 @@ private updateTestRunProgress(): void {
     return [headers.join(','), ...rows].join('\n');
   }
 
-  // Method to clear all filters
   clearAllFilters(): void {
     this.filter = {
       slNo: '',
@@ -1253,7 +1390,6 @@ private updateTestRunProgress(): void {
     };
   }
 
-  // Method to check if any filters are active
   hasActiveFilters(): boolean {
     return !!(
       this.filter.slNo ||
