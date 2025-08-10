@@ -9,7 +9,7 @@ import { AlertComponent } from 'src/app/shared/alert/alert.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProductModule } from 'src/app/shared/modles/module.model';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { catchError, of, tap } from 'rxjs';
+import { catchError, of, tap, forkJoin, map, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-test-suite',
@@ -163,6 +163,14 @@ export class TestSuiteComponent {
   private loadTestCasesForModule(moduleId: string): void {
     this.isLoadingTestCases.set(true);
     this.testCaseService.getTestCasesByModule(moduleId).pipe(
+      switchMap(list => {
+        if (!list || list.length === 0) return of([] as TestCaseDetailResponse[]);
+        return forkJoin(
+          list.map(tc => this.testCaseService.getTestCaseDetail(moduleId, tc.id).pipe(
+            catchError(() => of(null))
+          ))
+        ).pipe(map(details => details.filter(d => !!d) as TestCaseDetailResponse[]));
+      }),
       tap((testCases) => {
         this.availableTestCases.set(testCases);
         this.isLoadingTestCases.set(false);

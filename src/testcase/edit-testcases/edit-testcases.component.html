@@ -22,16 +22,6 @@
     <label>Search Filters</label>
     <div class="filters">
       <div class="filter-group">
-        <label>Sl No:</label>
-        <input
-          type="text"
-          placeholder="Filter by Sl No"
-          [ngModel]="filter().slNo"
-          (ngModelChange)="updateFilter('slNo', $event)"
-        />
-      </div>
-      
-      <div class="filter-group">
         <label>Test Case ID:</label>
         <input
           type="text"
@@ -51,18 +41,18 @@
         />
       </div>
       
-    <div class="filter-group">
-  <label>Version:</label>
-  <select
-    [ngModel]="filter().version"
-    (ngModelChange)="updateFilter('version', $event)"
-  >
-    <option value="">All Versions</option>
-    <option *ngFor="let version of versions()" [value]="version">
-      {{ version }}
-    </option>
-  </select>
-</div>
+      <div class="filter-group">
+        <label>Version:</label>
+        <select
+          [ngModel]="filter().version"
+          (ngModelChange)="updateFilter('version', $event)"
+        >
+          <option value="">All Versions</option>
+          <option *ngFor="let version of versions()" [value]="version">
+            {{ version }}
+          </option>
+        </select>
+      </div>
     </div>
   </div>
 
@@ -95,16 +85,17 @@
           <td>{{ testCase.testCaseId }}</td>
           <td class="wrap-text">{{ testCase.useCase }}</td>
           <td class="wrap-text">{{ testCase.scenario }}</td>
-       <td class="wrap-text">
+          <td class="wrap-text">
   <div *ngFor="let step of testCase.steps; let i = index">
-    <strong>{{i+1}}.</strong> {{step.steps}}
+    <strong>Step {{i + 1}}:</strong> {{ step.steps }}
   </div>
 </td>
 <td class="wrap-text">
   <div *ngFor="let step of testCase.steps; let i = index">
-    <strong>{{i+1}}.</strong> {{step.expectedResult}}
+    <strong>Expected {{i + 1}}:</strong> {{ step.expectedResult }}
   </div>
 </td>
+          
           <!-- Dynamic attribute values -->
           <td *ngFor="let attrName of getUniqueAttributeNames()" class="wrap-text">
             {{getAttributeValue(testCase, attrName) || '-'}}
@@ -133,109 +124,100 @@
   <button class="btn-save" (click)="openForm()">Add New Test Case</button>
 
   <!-- Add/Edit Test Case Form -->
-  <div *ngIf="isEditing()" class="form-overlay">
-    <form [formGroup]="form" (ngSubmit)="saveTestCase()" class="test-case-form">
-      <h3>{{ form.value.id ? 'Edit' : 'Add' }} Test Case</h3>
+<div *ngIf="isEditing()" class="form-overlay">
+  <form [formGroup]="form" (ngSubmit)="saveTestCase()" class="test-case-form">
+    <h3>{{ form.value.id ? 'Edit' : 'Add' }} Test Case</h3>
 
-      <div class="form-group">
-        <label>Version:</label>
-        <select formControlName="version">
-          <option *ngFor="let version of versions()" [value]="version">
-            {{ version }}
-          </option>
-        </select>
-        <div *ngIf="form.get('version')?.invalid && form.get('version')?.touched" class="error-message">
-          Version is required
-        </div>
+    <div class="form-group">
+      <label>Version:</label>
+      <select formControlName="version" required>
+        <option *ngFor="let version of versions()" [value]="version">
+          {{ version }}
+        </option>
+      </select>
+      <div *ngIf="form.get('version')?.invalid && (form.get('version')?.dirty || form.get('version')?.touched)" 
+           class="error-message">
+        Version is required
       </div>
+    </div>
 
-      <div class="form-group">
-        <label>Test Case ID:</label>
-        <input type="text" formControlName="testCaseId" />
-        <div *ngIf="form.get('testCaseId')?.errors?.['required'] && form.get('testCaseId')?.touched" 
-             class="error-message">
-          Test Case ID is required
-        </div>
-        <div *ngIf="form.get('testCaseId')?.errors?.['pattern'] && form.get('testCaseId')?.touched" 
-             class="error-message">
-          Test Case ID must start with TC
-        </div>
+    <div class="form-group">
+      <label>Test Case ID:</label>
+      <input type="text" formControlName="testCaseId" required />
+      <div *ngIf="form.get('testCaseId')?.invalid && (form.get('testCaseId')?.dirty || form.get('testCaseId')?.touched)" 
+           class="error-message">
+        <span *ngIf="form.get('testCaseId')?.errors?.['required']">Test Case ID is required</span>
+        <span *ngIf="form.get('testCaseId')?.errors?.['pattern']">Must start with TC followed by numbers</span>
       </div>
+    </div>
 
-      <div class="form-group">
-        <label>Use Case:</label>
-        <input type="text" formControlName="useCase" />
-        <div *ngIf="form.get('useCase')?.invalid && form.get('useCase')?.touched" class="error-message">
-          Use Case is required
-        </div>
+    <div class="form-group">
+      <label>Use Case:</label>
+      <input type="text" formControlName="useCase" required />
+      <div *ngIf="form.get('useCase')?.invalid && (form.get('useCase')?.dirty || form.get('useCase')?.touched)" 
+           class="error-message">
+        <span *ngIf="form.get('useCase')?.errors?.['required']">Use Case is required</span>
+        <span *ngIf="form.get('useCase')?.errors?.['minlength']">Minimum 5 characters required</span>
       </div>
+    </div>
 
-      <div class="form-group">
-        <label>Scenario:</label>
-        <textarea formControlName="scenario" rows="3"></textarea>
-        <div *ngIf="form.get('scenario')?.invalid && form.get('scenario')?.touched" class="error-message">
-          Scenario is required
-        </div>
+    <div class="form-group">
+      <label>Scenario:</label>
+      <textarea formControlName="scenario" rows="3" required></textarea>
+      <div *ngIf="form.get('scenario')?.invalid && (form.get('scenario')?.dirty || form.get('scenario')?.touched)" 
+           class="error-message">
+        <span *ngIf="form.get('scenario')?.errors?.['required']">Scenario is required</span>
+        <span *ngIf="form.get('scenario')?.errors?.['minlength']">Minimum 10 characters required</span>
       </div>
+    </div>
 
-      <div class="form-group">
-        <label>Steps:</label>
-        <textarea formControlName="steps" rows="5" placeholder="Enter steps (separate with blank lines)"></textarea>
-        <div *ngIf="form.get('steps')?.invalid && form.get('steps')?.touched" class="error-message">
-          Steps are required
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Expected Result:</label>
-        <textarea formControlName="expectedResult" rows="3"></textarea>
-        <div *ngIf="form.get('expectedResult')?.invalid && form.get('expectedResult')?.touched" class="error-message">
-          Expected result is required
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Result:</label>
-        <select formControlName="result">
-          <option value="Pending">Pending</option>
-          <option value="Pass">Pass</option>
-          <option value="Fail">Fail</option>
-          <option value="Blocked">Blocked</option>
-        </select>
-      </div>
-
-      <div class="form-group" *ngIf="form.value.result === 'Fail' || form.value.result === 'Blocked'">
-        <label>Actual Result:</label>
-        <textarea formControlName="actual" rows="2"></textarea>
-      </div>
-
-      <div class="form-group" *ngIf="form.value.result === 'Fail' || form.value.result === 'Blocked'">
-        <label>Remarks:</label>
-        <textarea formControlName="remarks" rows="2"></textarea>
-      </div>
-
-      <!-- Dynamic Attributes -->
-      <div class="attributes-section">
-        <h4>Attributes</h4>
-        <div formArrayName="attributes">
-          <div *ngFor="let attr of attributes.controls; let i = index" [formGroupName]="i" class="attribute-item">
-            <label>{{ moduleAttributes()[i]?.name || 'Attribute' }}</label>
-            <input type="hidden" formControlName="key" />
-            <textarea formControlName="value" [attr.required]="moduleAttributes()[i]?.isRequired"></textarea>
-            <div *ngIf="attributes.at(i).get('value')?.invalid && attributes.at(i).get('value')?.touched" 
-                 class="error-message">
-              This attribute is required
-            </div>
+    <div class="form-group">
+      <label>Steps:</label>
+      <div formArrayName="steps">
+        <div *ngFor="let step of steps.controls; let i = index" [formGroupName]="i" class="step-item">
+          <div class="step-header">
+            <span>Step {{i + 1}}</span>
+            <button type="button" class="btn-small-danger" (click)="removeStep(i)" *ngIf="steps.length > 1">
+              Remove
+            </button>
+          </div>
+          <textarea formControlName="steps" rows="2" placeholder="Step description" required></textarea>
+          <div *ngIf="steps.at(i).get('steps')?.invalid && (steps.at(i).get('steps')?.dirty || steps.at(i).get('steps')?.touched)" 
+               class="error-message">
+            Step description is required
+          </div>
+          <textarea formControlName="expectedResult" rows="2" placeholder="Expected result" required></textarea>
+          <div *ngIf="steps.at(i).get('expectedResult')?.invalid && (steps.at(i).get('expectedResult')?.dirty || steps.at(i).get('expectedResult')?.touched)" 
+               class="error-message">
+            Expected result is required
           </div>
         </div>
       </div>
+      <button type="button" class="btn-small" (click)="addStep()">Add Step</button>
+    </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn-save" [disabled]="form.invalid">Save</button>
-        <button type="button" class="btn-small-danger" (click)="cancelEditing()">Cancel</button>
+    <!-- Dynamic Attributes -->
+    <div class="attributes-section" *ngIf="moduleAttributes().length > 0">
+      <h4>Attributes</h4>
+      <div formArrayName="attributes">
+        <div *ngFor="let attr of attributes.controls; let i = index" [formGroupName]="i" class="attribute-item">
+          <label>{{ moduleAttributes()[i]?.name || 'Attribute' }}</label>
+          <input type="hidden" formControlName="key" />
+          <textarea formControlName="value" [attr.required]="moduleAttributes()[i]?.isRequired"></textarea>
+          <div *ngIf="moduleAttributes()[i]?.isRequired && attributes.at(i).get('value')?.invalid && (attributes.at(i).get('value')?.dirty || attributes.at(i).get('value')?.touched)" 
+               class="error-message">
+            This attribute is required
+          </div>
+        </div>
       </div>
-    </form>
-  </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-save" [disabled]="form.invalid">Save</button>
+      <button type="button" class="btn-small-danger" (click)="cancelEditing()">Cancel</button>
+    </div>
+  </form>
+</div>
 
   <!-- Module Attributes Modal -->
   <div *ngIf="showModuleAttributesForm()" class="form-overlay">
@@ -243,11 +225,14 @@
       <h3>Manage Module Attributes</h3>
       
       <!-- Attributes List -->
+       <!-- Add this above your attributes table -->
+<pre>{{ moduleAttributes() | json }}</pre>
       <div *ngIf="!currentModuleAttribute()">
         <table class="attributes-table">
           <thead>
             <tr>
               <th>Name</th>
+              <th>Key</th>
               <th>Type</th>
               <th>Required</th>
               <th>Actions</th>
@@ -256,11 +241,17 @@
           <tbody>
             <tr *ngFor="let attr of moduleAttributes()">
               <td>{{ attr.name }}</td>
+              <td>{{ attr.key }}</td>
               <td>{{ attr.type }}</td>
               <td>{{ attr.isRequired ? 'Yes' : 'No' }}</td>
               <td>
                 <button class="btn-small" (click)="editModuleAttribute(attr)">Edit</button>
-                <button class="btn-small-danger" (click)="deleteModuleAttribute(attr.id)">Delete</button>
+                <button class="btn-small-danger" 
+        (click)="deleteModuleAttribute(attr.id)"
+        *ngIf="attr.id">
+  Delete
+</button>
+<span *ngIf="!attr.id" class="no-delete-message">Cannot delete (no ID)</span>
               </td>
             </tr>
           </tbody>
@@ -276,12 +267,12 @@
       <div *ngIf="currentModuleAttribute()" class="attribute-form">
         <div class="form-group">
           <label>Attribute Name:</label>
-          <input type="text" [(ngModel)]="currentModuleAttribute()!.name" />
+          <input type="text" [(ngModel)]="currentModuleAttribute()!.name" required />
         </div>
         
         <div class="form-group">
           <label>Key (snake_case):</label>
-          <input type="text" [(ngModel)]="currentModuleAttribute()!.key" />
+          <input type="text" [(ngModel)]="currentModuleAttribute()!.key" required />
         </div>
         
         <div class="form-group">
@@ -302,7 +293,10 @@
         </div>
         
         <div class="form-actions">
-          <button class="btn-save" (click)="saveModuleAttribute()">Save</button>
+          <button class="btn-save" (click)="saveModuleAttribute()" 
+                  [disabled]="!currentModuleAttribute()?.name || !currentModuleAttribute()?.key">
+            Save
+          </button>
           <button class="btn-small-danger" (click)="closeModuleAttributeForm()">Cancel</button>
         </div>
       </div>

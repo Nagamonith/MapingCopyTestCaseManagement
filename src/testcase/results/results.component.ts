@@ -6,7 +6,7 @@ import { TestCaseService } from 'src/app/shared/services/test-case.service';
 import { TestRunService } from 'src/app/shared/services/test-run.service';
 import { TestSuiteService } from 'src/app/shared/services/test-suite.service';
 import { ActivatedRoute } from '@angular/router';
-import { of, BehaviorSubject, switchMap, combineLatest, firstValueFrom } from 'rxjs';
+import { of, BehaviorSubject, switchMap, combineLatest, firstValueFrom, forkJoin, map } from 'rxjs';
 
 @Component({
   selector: 'app-results',
@@ -40,7 +40,15 @@ export class ResultsComponent implements OnInit {
   );
 
   testCases$ = this.moduleId$.pipe(
-    switchMap(moduleId => moduleId ? this.testCaseService.getTestCasesByModule(moduleId) : of([]))
+    switchMap(moduleId => moduleId 
+      ? this.testCaseService.getTestCasesByModule(moduleId).pipe(
+          switchMap(list => list && list.length
+            ? forkJoin(list.map(tc => this.testCaseService.getTestCaseDetail(moduleId, tc.id)))
+            : of([])
+          )
+        )
+      : of([])
+    )
   );
 
   testRuns$ = this.productId$.pipe(
@@ -138,7 +146,7 @@ export class ResultsComponent implements OnInit {
       let failedCases = 0;
       let pendingCases = 0;
 
-      const suiteStatsPromises = testRun.testSuites.map(async (suite: any) => {
+      const suiteStatsPromises = (testRun.testSuites || []).map(async (suite: any) => {
         const suiteCases = await firstValueFrom(this.testSuiteService.getTestCasesForSuite(suite.id));
 
         const suiteTotal = suiteCases.length;
@@ -204,7 +212,7 @@ export class ResultsComponent implements OnInit {
   async getSelectedSuiteName(): Promise<string> {
     const stats = this.testRunStats();
     if (!stats) return '';
-    const suite = stats.suiteStats.find((s: any) => s.suiteId === this.selectedSuiteId());
+      const suite = stats.suiteStats.find((s: any) => s.suiteId === this.selectedSuiteId());
     return suite ? suite.suiteName : '';
   }
 

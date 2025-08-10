@@ -48,6 +48,7 @@ export interface TestCaseResponse {
 }
 
 export interface TestCaseDetailResponse extends TestCaseResponse {
+  expected?: any;
   steps?: ManualTestCaseStep[];
   attributes?: TestCaseAttribute[];
   uploads?: string[];

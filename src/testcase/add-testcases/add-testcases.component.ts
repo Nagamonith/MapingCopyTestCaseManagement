@@ -96,11 +96,7 @@ export class AddTestcasesComponent implements OnInit {
     if (!module) return;
 
     this.isLoading.set(true);
-    const versionRequest: ProductVersionRequest = {
-      version: this.newVersionName,
-      isActive: true
-    };
-
+    // Create a new module version as API doesn't expose product version add for modules directly
     this.moduleService.createModule(module.productId, {
       productId: module.productId,
       name: this.newModuleName,

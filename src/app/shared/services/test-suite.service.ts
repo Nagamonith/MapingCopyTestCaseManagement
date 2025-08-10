@@ -48,10 +48,20 @@ export class TestSuiteService {
     return this.http.post<void>(`${this.apiUrl}/api/testsuites/${testSuiteId}/testcases`, request);
   }
 
-  removeTestCaseFromSuite(testSuiteId: string, testCaseId: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/api/testsuites/${testSuiteId}/testcases/${testCaseId}`);
-  }
+removeTestCaseFromSuite(testSuiteId: string, testCaseId: string): Observable<void> {
+  return this.http.delete<void>(
+    `${this.apiUrl}/api/testsuites/${testSuiteId}/testcases/${testCaseId}`
+  );
+}
   getTestCasesForSuite(suiteId: string): Observable<TestCaseDetailResponse[]> {
   return this.http.get<TestCaseDetailResponse[]>(`${this.apiUrl}/api/testsuites/${suiteId}/testcases`);
 }
+addTestCasesToSuite(testSuiteId: string, testCaseIds: string[]): Observable<void> {
+  return this.http.post<void>(
+    `${this.apiUrl}/api/testsuites/${testSuiteId}/testcases`,
+    { testCaseIds }
+  );
+}
+
+
 }

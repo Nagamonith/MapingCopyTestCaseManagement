@@ -1,23 +1,22 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'; 
+import { ProductService } from 'src/app/shared/services/product.service';
+import { Product } from 'src/app/shared/modles/product.model';
 
 @Component({
   selector: 'app-product-selection',
   standalone: true,
   imports: [CommonModule, FormsModule], 
   templateUrl: './product-selection.component.html',
-  styleUrl: './product-selection.component.css'
+  styleUrls: ['./product-selection.component.css']
 })
 export class ProductSelectionComponent {
-  products = [
-    { id: '2', name: 'Qualis SPC' },
-    { id: '3', name: 'MSA' },
-    { id: '4', name: 'FMEA' },
-    { id: '5', name: 'Wizard' },
-    { id: '6', name: 'APQP' }
-  ];
+  private router = inject(Router);
+  private productService = inject(ProductService);
+
+  products: Product[] = [];
 
   newProductName = '';
   showAddForm = false;
@@ -29,11 +28,15 @@ export class ProductSelectionComponent {
   editingIndex: number | null = null;
   editedProductName = '';
 
-  constructor(private router: Router) {
-    // Close context menu on outside click
+  constructor() {
     document.addEventListener('click', () => {
       this.contextMenuIndex = null;
     });
+    this.loadProducts();
+  }
+
+  private loadProducts(): void {
+    this.productService.getProducts().subscribe(products => this.products = products);
   }
 
   toggleAddProduct() {
@@ -42,10 +45,11 @@ export class ProductSelectionComponent {
 
   saveProduct() {
     if (!this.newProductName.trim()) return;
-    const newId = (this.products.length + 1).toString();
-    this.products.push({ id: newId, name: this.newProductName });
-    this.newProductName = '';
-    this.showAddForm = false;
+    this.productService.createProduct({ name: this.newProductName, isActive: true }).subscribe(() => {
+      this.newProductName = '';
+      this.showAddForm = false;
+      this.loadProducts();
+    });
   }
 
   clearForm() {
@@ -53,10 +57,8 @@ export class ProductSelectionComponent {
     this.showAddForm = false;
   }
 
-  selectProduct(product: any) {
-    localStorage.setItem('productId', product.id);
-    localStorage.setItem('productName', product.name);
-    this.router.navigate(['/tester']);
+  selectProduct(product: Product) {
+    this.router.navigate(['/tester'], { queryParams: { productId: product.id, productName: product.name } });
   }
 
   onRightClick(event: MouseEvent, index: number) {
@@ -84,9 +86,11 @@ export class ProductSelectionComponent {
   }
 
   deleteProduct(index: number) {
-    if (confirm('Are you sure you want to delete this product?')) {
-      this.products.splice(index, 1);
-    }
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    const product = this.products[index];
+    this.productService.deleteProduct(product.id).subscribe(() => {
+      this.loadProducts();
+    });
     this.contextMenuIndex = null;
     if (this.editingIndex === index) {
       this.editingIndex = null;

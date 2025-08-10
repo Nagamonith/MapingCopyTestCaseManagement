@@ -36,12 +36,13 @@ export class TestRunService {
     return this.http.delete<void>(`${this.apiUrl}/api/products/${productId}/testruns/${id}`);
   }
 
- updateTestRunStatus(productId: string, testRunId: string, status: TestRunStatus): Observable<void> {
-  return this.http.put<void>(
-    `${this.apiUrl}/api/products/${productId}/testruns/${testRunId}/status`, 
-    { status }
-  );
-}
+  updateTestRunStatus(productId: string, testRunId: string, status: TestRunStatus): Observable<void> {
+    // API expects a plain string body per Swagger
+    return this.http.put<void>(
+      `${this.apiUrl}/api/products/${productId}/testruns/${testRunId}/status`,
+      status
+    );
+  }
 
   getTestRunResults(testRunId: string): Observable<TestRunResultResponse[]> {
     return this.http.get<TestRunResultResponse[]>(`${this.apiUrl}/api/testruns/${testRunId}/results`);
@@ -58,18 +59,27 @@ export class TestRunService {
   removeTestSuiteFromRun(testRunId: string, testSuiteId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/api/testruns/${testRunId}/testsuites/${testSuiteId}`);
   }
+  // No direct API to update name/description in Swagger. Provide a helper that updates status only.
   updateTestRun(
-  productId: string, 
-  testRunId: string, 
-  run: CreateTestRunRequest,
-  status: { status: TestRunStatus }
-): Observable<void> {
-  return this.http.put<void>(
-    `${this.apiUrl}/api/products/${productId}/testruns/${testRunId}`, 
-    { ...run, status: status.status }
+    productId: string,
+    testRunId: string,
+    _run: CreateTestRunRequest,
+    status: { status: TestRunStatus }
+  ): Observable<void> {
+    return this.updateTestRunStatus(productId, testRunId, status.status);
+  }
+ getAssignedTestSuites(testRunId: string): Observable<string[]> {
+  return this.http.get<string[]>(
+    `${this.apiUrl}/api/testruns/${testRunId}/testsuites`
   );
 }
- 
+
+assignTestSuites(testRunId: string, suiteIds: string[]): Observable<void> {
+  return this.http.post<void>(
+    `${this.apiUrl}/api/testruns/${testRunId}/testsuites`,
+    { testSuiteIds: suiteIds }
+  );
+}
   // test-run.service.ts
 // In test-run.service.ts
 

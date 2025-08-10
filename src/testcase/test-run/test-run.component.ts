@@ -223,23 +223,8 @@ export class TestRunComponent implements OnInit {
   }
 
   private updateTestRun(request: CreateTestRunRequest): void {
-    // Provide a default status, e.g., 'Not Started', or use the actual status if available
-    this.testRunService.updateTestRun(
-      this.currentProductId(),
-      this.selectedRunId(),
-      request,
-      { status: 'Not Started' } // Replace with actual status if you have it
-    ).pipe(
-      tap(() => {
-        this.assignTestSuites(this.selectedRunId());
-      }),
-      catchError(err => {
-        console.error('Failed to update test run:', err);
-        this.showAlertMessage('Failed to update test run', 'error');
-        this.isSaving.set(false);
-        return of(null);
-      })
-    ).subscribe();
+    // Swagger exposes only status update; update suites and keep status as-is
+    this.assignTestSuites(this.selectedRunId());
   }
 
   private assignTestSuites(runId: string): void {

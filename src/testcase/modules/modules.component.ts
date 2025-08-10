@@ -31,7 +31,7 @@ import { TestCase, TestCaseDetailResponse, TestCaseResponse, UpdateTestCaseReque
 import { TestSuite, TestSuiteResponse, TestSuiteWithCasesResponse } from 'src/app/shared/modles/test-suite.model';
 import { TestRun, TestRunResponse, TestRunStatus } from 'src/app/shared/modles/test-run.model';
 import { IdResponse } from 'src/app/shared/modles/product.model';
-import { catchError, forkJoin, map, of } from 'rxjs';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 
 interface Filter {
   slNo: string;
@@ -508,24 +508,27 @@ private convertTestCaseDetailToTestCase(response: TestCaseDetailResponse): TestC
     remarks: response.remarks || ''
   };
 }
-private loadTestCasesForModule(moduleId: string, version: string): void {
-  this.testCaseService.getTestCasesByModule(moduleId)
-    .pipe(
-      catchError(error => {
-        this.showAlertMessage('Failed to load test cases', 'error');
-        return of([]);
-      }),
-      map((responses: TestCaseDetailResponse[]) =>
-        responses.map(res => this.convertTestCaseDetailToTestCase(res))
+  private loadTestCasesForModule(moduleId: string, version: string): void {
+    this.testCaseService.getTestCasesByModule(moduleId)
+      .pipe(
+        catchError(() => of([])),
+        switchMap(list => {
+          if (!list || list.length === 0) return of([] as TestCaseDetailResponse[]);
+          return forkJoin(
+            list.map(tc => this.testCaseService.getTestCaseDetail(moduleId, tc.id).pipe(
+              catchError(() => of(null))
+            ))
+          ).pipe(map(details => details.filter(d => !!d) as TestCaseDetailResponse[]));
+        })
       )
-    )
-    .subscribe(cases => {
-      this.testCasePool.set(cases);
-      const filteredCases = cases.filter(tc => tc.moduleId === moduleId && tc.version === version);
-      this.versionTestCases.set(filteredCases);
-      this.initializeFormForTestCases();
-    });
-}
+      .subscribe(casesDetail => {
+        const cases = casesDetail.map(res => this.convertTestCaseDetailToTestCase(res));
+        this.testCasePool.set(cases);
+        const filteredCases = cases.filter(tc => tc.moduleId === moduleId && tc.version === version);
+        this.versionTestCases.set(filteredCases);
+        this.initializeFormForTestCases();
+      });
+  }
 // First, let's create proper type conversion functions at the top of your component
 
 
@@ -581,11 +584,14 @@ private handleTestSuiteSelection(suiteId: string): void {
               });
             }),
             map(response => ({
-              ...response,
-              testCases: (response.testCases || []).map(tc => 
-                this.convertTestCaseDetailToTestCase(tc)
-              )
-            }))
+  ...response,
+  testCases: (response.testCases || []).map(tc => 
+    this.convertTestCaseDetailToTestCase({
+      ...tc,
+      expected: (tc as any).expected || '' // Provide default if missing
+    } as TestCaseDetailResponse)
+  )
+}))
           )
           .subscribe(response => {
             this.versionTestCases.set(response.testCases);

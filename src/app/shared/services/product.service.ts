@@ -32,12 +32,13 @@ export class ProductService {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
   addProductVersion(productId: string, request: ProductVersionRequest): Observable<ProductVersionResponse> {
-  return this.http.post<ProductVersionResponse>(`${this.apiUrl}/products/${productId}/versions`, request);
-}
+    // Correct base per Swagger: /api/products/{productId}/versions
+    return this.http.post<ProductVersionResponse>(`${environment.apiUrl}/api/products/${productId}/versions`, request);
+  }
 
-removeProductVersion(productId: string, versionId: string): Observable<void> {
-  return this.http.delete<void>(`${this.apiUrl}/products/${productId}/versions/${versionId}`);
-}
+  removeProductVersion(productId: string, versionId: string): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/api/products/${productId}/versions/${versionId}`);
+  }
 }
 
 export type { Product };

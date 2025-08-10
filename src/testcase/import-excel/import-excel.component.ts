@@ -181,10 +181,10 @@ async saveData() {
   }
 }
 
-private async createTestCase(request: CreateTestCaseRequest): Promise<TestCaseDetailResponse> {
+  private async createTestCase(request: CreateTestCaseRequest): Promise<TestCaseDetailResponse> {
   try {
     // First create the test case and get the ID
-    const idResponse = await this.testCaseService.createTestCase(request.moduleId, request).toPromise();
+    const idResponse = await this.testCaseService.createTestCaseAndSteps(request.moduleId, request).toPromise();
     
     if (!idResponse) {
       throw new Error('Failed to create test case');
