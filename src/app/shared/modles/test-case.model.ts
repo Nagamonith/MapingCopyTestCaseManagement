@@ -2,7 +2,7 @@
 export type TestCaseResult = 'Pass' | 'Fail' | 'Pending' | 'Blocked';
 
 export interface ManualTestCaseStep {
-  testCaseId: string;
+  testCaseId?: string;
   steps: string;
   expectedResult: string;
 }

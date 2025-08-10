@@ -39,22 +39,16 @@ export class TestCaseService {
     return this.http.get<TestCaseDetailResponse>(`${this.apiUrl}/api/modules/${moduleId}/testcases/${id}`);
   }
 
- createTestCase(moduleId: string, testCase: CreateTestCaseRequest): Observable<IdResponse> {
-  return this.http.post<IdResponse>(
-    `${this.apiUrl}/api/modules/${moduleId}/testcases`, 
-    testCase
-  );
+// In your TestCaseService
+updateTestCase(moduleId: string, id: string, testCase: UpdateTestCaseRequest): Observable<IdResponse> {
+  return this.http.put<IdResponse>(`${this.apiUrl}/api/modules/${moduleId}/testcases/${id}`, testCase);
 }
 
-  updateTestCase(moduleId: string, id: string, testCase: UpdateTestCaseRequest): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/api/modules/${moduleId}/testcases/${id}`, testCase);
-  }
-updateTestCaseAttributes(moduleId: string, testCaseId: string, 
-  attributes: TestCaseAttributeRequest[]): Observable<void> {
-  return this.http.put<void>(
-    `${this.apiUrl}/api/modules/${moduleId}/testcases/${testCaseId}/attributes`,
-    attributes
-  );
+createTestCase(moduleId: string, testCase: CreateTestCaseRequest): Observable<IdResponse> {
+  return this.http.post<IdResponse>(`${this.apiUrl}/api/modules/${moduleId}/testcases`, testCase);
+}
+updateTestCaseAttributes(moduleId: string, testCaseId: string, attributes: TestCaseAttributeRequest[]): Observable<void> {
+  return this.http.put<void>(`${this.apiUrl}/api/testcases/${testCaseId}/attributes`, attributes);
 }
   deleteTestCase(moduleId: string, id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/api/modules/${moduleId}/testcases/${id}`);
@@ -63,27 +57,25 @@ updateTestCaseAttributes(moduleId: string, testCaseId: string,
   getTestCaseSteps(testCaseId: string): Observable<ManualTestCaseStep[]> {
     return this.http.get<ManualTestCaseStep[]>(`${this.apiUrl}/api/testcases/${testCaseId}/steps`);
   }
-
-  addTestCaseStep(testCaseId: string, step: ManualTestCaseStep): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/api/testcases/${testCaseId}/steps`, step);
-  }
-
-  deleteTestCaseStep(testCaseId: string, stepId: number): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/api/testcases/${testCaseId}/steps/${stepId}`);
-  }
+addTestCaseStep(testCaseId: string, step: ManualTestCaseStep): Observable<any> {
+  return this.http.post(`${this.apiUrl}/testcases/${testCaseId}/steps`, step);
+}
+deleteTestCaseStep(testCaseId: string, stepId: number): Observable<void> {
+  return this.http.delete<void>(`${this.apiUrl}/testcases/${testCaseId}/steps/${stepId}`);
+}
 getTestCaseAttributes(moduleId: string, testCaseId: string): Observable<TestCaseAttributeResponse[]> {
   return this.http.get<TestCaseAttributeResponse[]>(
-    `${this.apiUrl}/api/modules/${moduleId}/testcases/${testCaseId}/attributes`
+    `${this.apiUrl}/api/testcases/${testCaseId}/attributes`
   );
 }
 
   addTestCaseAttribute(testCaseId: string, attribute: TestCaseAttributeRequest): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/api/testcases/${testCaseId}/attributes`, attribute);
-  }
+  return this.http.post<void>(`${this.apiUrl}/testcases/${testCaseId}/attributes`, attribute);
+}
 
-  deleteTestCaseAttribute(testCaseId: string, key: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/api/testcases/${testCaseId}/attributes/${key}`);
-  }
+deleteTestCaseAttribute(testCaseId: string, key: string): Observable<void> {
+  return this.http.delete<void>(`${this.apiUrl}/testcases/${testCaseId}/attributes/${key}`);
+}
 
   // Helper to get detailed cases for a module by fetching IDs first
   getTestCaseDetailByModule(moduleId: string): Observable<TestCaseDetailResponse[]> {

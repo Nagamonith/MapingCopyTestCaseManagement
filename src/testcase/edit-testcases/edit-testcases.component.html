@@ -86,15 +86,15 @@
           <td class="wrap-text">{{ testCase.useCase }}</td>
           <td class="wrap-text">{{ testCase.scenario }}</td>
           <td class="wrap-text">
-  <div *ngFor="let step of testCase.steps; let i = index">
-    <strong>Step {{i + 1}}:</strong> {{ step.steps }}
-  </div>
-</td>
-<td class="wrap-text">
-  <div *ngFor="let step of testCase.steps; let i = index">
-    <strong>Expected {{i + 1}}:</strong> {{ step.expectedResult }}
-  </div>
-</td>
+            <div *ngFor="let step of testCase.steps; let i = index">
+              <strong>{{i+1}}.</strong> {{step.steps}}
+            </div>
+          </td>
+          <td class="wrap-text">
+            <div *ngFor="let step of testCase.steps; let i = index">
+              <strong>{{i+1}}.</strong> {{step.expectedResult}}
+            </div>
+          </td>
           
           <!-- Dynamic attribute values -->
           <td *ngFor="let attrName of getUniqueAttributeNames()" class="wrap-text">
