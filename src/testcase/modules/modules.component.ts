@@ -355,18 +355,21 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     };
   }
 
-  private convertTestCaseDetailToTestCase(response: TestCaseDetailResponse): TestCase {
-    return {
-      ...response,
-      testType: this.parseTestType(response.testType),
-      result: this.parseTestCaseResult(response.result),
-      steps: response.steps || [],
-      attributes: response.attributes || [],
-      uploads: response.uploads || [],
-      actual: response.actual || '',
-      remarks: response.remarks || ''
-    };
-  }
+ private convertTestCaseDetailToTestCase(response: TestCaseDetailResponse): TestCase {
+  const testCase: TestCase = {
+    ...response,
+    testType: this.parseTestType(response.testType),
+    result: this.parseTestCaseResult(response.result),
+    steps: response.steps || [],
+    attributes: response.attributes || [],
+    uploads: response.uploads || [],
+    actual: response.actual || '',
+    remarks: response.remarks || ''
+  };
+
+  console.log('Converted test case:', testCase);
+  return testCase;
+}
 
   private parseTestType(testType: string): 'Manual' | 'Automation' {
     return testType === 'Manual' || testType === 'Automation' ? testType : 'Manual';
@@ -396,49 +399,55 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // Toggle selection mode methods
-  toggleSelectionMode(showSuites: boolean, showRuns: boolean): void {
-    this.showTestSuites = showSuites;
-    this.showTestRuns = showRuns;
-    this.selectedModule.set(null);
-    this.selectedTestRunId.set(null);
-    this.viewingSuiteId.set(null);
-    this.selectedVersion = '';
-    this.versionTestCases.set([]);
-    this.showViewTestCases = false;
-    this.showStartTesting = false;
-    this.formArray.clear();
-    this.selectedSuiteIds = [];
-    this.allSuitesSelected = false;
-    
-    console.log('Toggle selection mode:', { showSuites, showRuns });
-    console.log('Available modules:', this.filteredModules());
-    console.log('Available test suites:', this.testSuites());
-    console.log('Available test runs:', this.testRuns());
-  }
+toggleSelectionMode(showSuites: boolean, showRuns: boolean): void {
+  this.showTestSuites = showSuites;
+  this.showTestRuns = showRuns;
+  this.selectedModule.set(null);
+  this.selectedTestRunId.set(null);
+  this.viewingSuiteId.set(null);
+  this.selectedVersion = '';
+  this.versionTestCases.set([]);
+  this.showViewTestCases = false;
+  this.showStartTesting = false;
+  this.formArray.clear();
+  this.selectedSuiteIds = [];
+  this.allSuitesSelected = false;
+  this.uploads = [];
+  
+  console.log('Toggle selection mode:', { showSuites, showRuns });
+  console.log('Available modules:', this.filteredModules());
+  console.log('Available test suites:', this.testSuites());
+  console.log('Available test runs:', this.testRuns());
+}
 
   // Selection change method
   onSelectionChange(id: string): void {
-    console.log('Selection changed to:', id);
-    
-    if (!id) {
-      this.selectedModule.set(null);
-      return;
-    }
-
-    // Reset view states when changing selection
-    this.showViewTestCases = false;
-    this.showStartTesting = false;
-    this.formArray.clear();
-    this.uploads = [];
-
-    if (this.showTestSuites) {
-      this.handleTestSuiteSelection(id);
-    } else if (this.showTestRuns) {
-      this.onTestRunChange(id);
-    } else {
-      this.handleModuleSelection(id);
-    }
+  console.log('Selection changed to:', id);
+  
+  if (!id) {
+    this.selectedModule.set(null);
+    this.selectedTestRunId.set(null); // Clear test run ID when no selection
+    return;
   }
+
+  // Reset view states when changing selection
+  this.showViewTestCases = false;
+  this.showStartTesting = false;
+  this.formArray.clear();
+  this.uploads = [];
+
+  if (this.showTestSuites) {
+    this.handleTestSuiteSelection(id);
+  } else if (this.showTestRuns) {
+    // Don't call onTestRunChange here as it will cause recursion
+    this.selectedTestRunId.set(id);
+    this.selectedModule.set(null); // Clear module selection
+    this.updateTestRunProgress();
+  } else {
+    this.handleModuleSelection(id);
+  }
+}
+
 
   private handleModuleSelection(id: string): void {
     console.log('Handling module selection:', id);
@@ -539,62 +548,95 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private loadTestCasesForSuite(suiteId: string): void {
-    console.log('Loading test cases for suite:', suiteId);
-    
-    this.testSuiteService.getTestSuiteWithCases(suiteId)
-      .pipe(
-        catchError(error => {
-          console.error('Failed to load test cases for suite:', error);
-          this.showAlertMessage('Failed to load test cases for suite', 'error');
-          const productId = this.selectedProductId() || '';
-          return of({
-            id: suiteId,
-            productId: productId,
-            name: 'Error loading suite',
-            description: '',
-            isActive: false,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            testCases: []
-          });
-        }),
-        map(response => ({
-          ...response,
-          testCases: (response.testCases || []).map(tc => 
-            this.convertTestCaseDetailToTestCase({
-              ...tc,
-              expected: (tc as any).expected || ''
-            } as TestCaseDetailResponse)
-          )
-        }))
-      )
-      .subscribe(response => {
-        console.log('Suite test cases loaded:', response.testCases);
-        this.versionTestCases.set(response.testCases);
+  console.log('Loading test cases for suite:', suiteId);
+  
+  this.testSuiteService.getTestSuiteWithCases(suiteId)
+    .pipe(
+      catchError(error => {
+        console.error('Failed to load test cases for suite:', error);
+        this.showAlertMessage('Failed to load test cases for suite', 'error');
+        const productId = this.selectedProductId() || '';
+        return of({
+          id: suiteId,
+          productId: productId,
+          name: 'Error loading suite',
+          description: '',
+          isActive: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          testCases: []
+        });
+      }),
+      map(response => ({
+        ...response,
+        testCases: (response.testCases || []).map(tc => 
+          this.convertTestCaseDetailToTestCase({
+            ...tc,
+            expected: (tc as any).expected || ''
+          } as TestCaseDetailResponse)
+        )
+      }))
+    )
+    .subscribe(response => {
+      console.log('Suite test cases loaded:', response.testCases.length);
+      this.versionTestCases.set(response.testCases);
+      
+      // Ensure form is initialized after setting test cases
+      setTimeout(() => {
         this.initializeFormForTestCases();
-      });
+        this.debugFormState(); // Add this for debugging
+      }, 100);
+    });
+}
+debugFormState(): void {
+  console.log('=== FORM DEBUG INFO ===');
+  console.log('Version test cases length:', this.versionTestCases().length);
+  console.log('Form array length:', this.formArray.length);
+  console.log('Form array valid:', this.formArray.valid);
+  console.log('Form array value:', this.formArray.value);
+  
+  this.formArray.controls.forEach((control, index) => {
+    const formGroup = control as FormGroup;
+    console.log(`Form group ${index}:`, {
+      value: formGroup.value,
+      valid: formGroup.valid,
+      controls: Object.keys(formGroup.controls)
+    });
+  });
+  console.log('=== END FORM DEBUG ===');
+}
+onResultChange(index: number, newValue: string): void {
+  console.log(`Result changed for index ${index}: ${newValue}`);
+  try {
+    const control = this.getFormControl(index, 'result');
+    control.setValue(newValue);
+    this.cdRef.detectChanges();
+  } catch (error) {
+    console.error('Error updating result:', error);
   }
+}
 
   // Test Run methods
-  onTestRunChange(runId: string): void {
-    console.log('Test run changed to:', runId);
-    console.log('Available test runs:', this.testRuns());
-    
-    this.selectedTestRunId.set(runId);
-    this.viewingSuiteId.set(null);
-    this.selectedSuiteIds = [];
-    this.allSuitesSelected = false;
-    
-    if (runId) {
-      const run = this.testRuns().find(r => r.id === runId);
-      console.log('Selected test run:', run);
-      this.updateTestRunProgress();
-    } else {
-      this.versionTestCases.set([]);
-      this.showViewTestCases = false;
-      this.showStartTesting = false;
-    }
+onTestRunChange(runId: string): void {
+  console.log('Test run changed to:', runId);
+  console.log('Available test runs:', this.testRuns());
+  
+  this.selectedTestRunId.set(runId);
+  this.selectedModule.set(null); // Clear module selection
+  this.viewingSuiteId.set(null);
+  this.selectedSuiteIds = [];
+  this.allSuitesSelected = false;
+  
+  if (runId) {
+    const run = this.testRuns().find(r => r.id === runId);
+    console.log('Selected test run:', run);
+    this.updateTestRunProgress();
+  } else {
+    this.versionTestCases.set([]);
+    this.showViewTestCases = false;
+    this.showStartTesting = false;
   }
+}
 
   // Suite selection methods
   isSuiteSelected(suiteId: string): boolean {
@@ -674,117 +716,163 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // View and start testing methods
   handleViewAction(): void {
-    console.log('Handle view action');
-    if (this.showTestRuns && this.selectedTestRun()?.testSuites?.length) {
+  console.log('Handle view action');
+  console.log('showTestRuns:', this.showTestRuns);
+  console.log('selectedTestRun:', this.selectedTestRun());
+  
+  if (this.showTestRuns) {
+    const selectedRun = this.selectedTestRun();
+    if (selectedRun?.testSuites?.length) {
       this.viewAllSelectedCases();
-    } else {
+    }
+  } else if (this.showTestSuites) {
+    const suite = this.testSuites().find(s => s.id === this.selectedModule());
+    if (suite) {
       this.showViewTestCases = true;
       this.showStartTesting = false;
+      this.loadTestCasesForSuite(suite.id);
     }
-  }
-
-  handleStartTesting(): void {
-    console.log('Handle start testing');
-    if (this.showTestRuns) {
-      this.startTestingSelected();
-    } else {
-      this.showStartTesting = true;
-      this.showViewTestCases = false;
-      this.initializeFormForTestCases();
-    }
-  }
-
-  hasTestCasesToView(): boolean {
-    if (this.showTestRuns) {
-      return !!this.selectedTestRun()?.testSuites?.length;
-    }
-    
-    if (this.selectedModule()) {
-      if (this.showTestSuites) {
-        const suite = this.testSuites().find(s => s.id === this.selectedModule());
-        return !!(suite?.testCases && suite.testCases.length > 0);
-      } else {
-        const moduleCases = this.testCasePool().filter(
-          tc => tc.moduleId === this.selectedModule()
-        );
-        return moduleCases.length > 0;
-      }
-    }
-    
-    return false;
-  }
-
-  viewAllSelectedCases(): void {
-    let cases: TestCase[] = [];
-    
-    if (this.allSuitesSelected || this.selectedSuiteIds.length === 0) {
-      // If all suites selected or none selected, show all cases from the run
-      cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
-        this.getTestCasesForSuite(suite.id)
-      ) || [];
-    } else {
-      // Show only selected suites
-      cases = this.selectedSuiteIds.flatMap(suiteId => 
-        this.getTestCasesForSuite(suiteId)
-      );
-    }
-    
-    this.versionTestCases.set(cases);
+  } else {
     this.showViewTestCases = true;
     this.showStartTesting = false;
-    this.initializeFormForTestCases();
   }
+}
 
-  startTestingSelected(): void {
-    let cases: TestCase[] = [];
-    
-    if (this.allSuitesSelected || this.selectedSuiteIds.length === 0) {
-      // If all suites selected or none selected, show all cases from the run
-      cases = this.selectedTestRun()?.testSuites.flatMap(suite => 
-        this.getTestCasesForSuite(suite.id)
-      ) || [];
-    } else {
-      // Show only selected suites
-      cases = this.selectedSuiteIds.flatMap(suiteId => 
-        this.getTestCasesForSuite(suiteId)
-      );
+  handleStartTesting(): void {
+  console.log('Handle start testing');
+  console.log('showTestRuns:', this.showTestRuns);
+  
+  if (this.showTestRuns) {
+    const selectedRun = this.selectedTestRun();
+    if (selectedRun?.testSuites?.length) {
+      this.startTestingSelected();
     }
-    
-    this.versionTestCases.set(cases);
+  } else if (this.showTestSuites) {
+    const suite = this.testSuites().find(s => s.id === this.selectedModule());
+    if (suite) {
+      this.showStartTesting = true;
+      this.showViewTestCases = false;
+      this.loadTestCasesForSuite(suite.id);
+    }
+  } else {
     this.showStartTesting = true;
     this.showViewTestCases = false;
     this.initializeFormForTestCases();
   }
+}
+
+hasTestCasesToView(): boolean {
+  if (this.showTestRuns) {
+    const selectedRun = this.selectedTestRun();
+    return !!(selectedRun?.testSuites?.length);
+  }
+  
+  if (this.selectedModule()) {
+    if (this.showTestSuites) {
+      const suite = this.testSuites().find(s => s.id === this.selectedModule());
+      return !!(suite?.testCases && suite.testCases.length > 0);
+    } else {
+      const moduleCases = this.testCasePool().filter(
+        tc => tc.moduleId === this.selectedModule()
+      );
+      return moduleCases.length > 0;
+    }
+  }
+  
+  return false;
+}
+
+
+ viewAllSelectedCases(): void {
+  let cases: TestCase[] = [];
+  
+  const selectedRun = this.selectedTestRun();
+  if (!selectedRun) {
+    console.error('No test run selected');
+    return;
+  }
+  
+  // If no specific suites selected, show all cases from the run
+  if (this.selectedSuiteIds.length === 0) {
+    cases = selectedRun.testSuites.flatMap(suite => 
+      this.getTestCasesForSuite(suite.id)
+    );
+  } else {
+    // Show only selected suites
+    cases = this.selectedSuiteIds.flatMap(suiteId => 
+      this.getTestCasesForSuite(suiteId)
+    );
+  }
+  
+  this.versionTestCases.set(cases);
+  this.showViewTestCases = true;
+  this.showStartTesting = false;
+  this.initializeFormForTestCases();
+}
+
+ startTestingSelected(): void {
+  let cases: TestCase[] = [];
+  
+  const selectedRun = this.selectedTestRun();
+  if (!selectedRun) {
+    console.error('No test run selected');
+    return;
+  }
+  
+  // If no specific suites selected, show all cases from the run
+  if (this.selectedSuiteIds.length === 0) {
+    cases = selectedRun.testSuites.flatMap(suite => 
+      this.getTestCasesForSuite(suite.id)
+    );
+  } else {
+    // Show only selected suites
+    cases = this.selectedSuiteIds.flatMap(suiteId => 
+      this.getTestCasesForSuite(suiteId)
+    );
+  }
+  
+  this.versionTestCases.set(cases);
+  this.showStartTesting = true;
+  this.showViewTestCases = false;
+  this.initializeFormForTestCases();
+}
 
   private initializeFormForTestCases(): void {
-    this.formArray.clear();
-    this.uploads = [];
+  this.formArray.clear();
+  this.uploads = [];
 
-    this.versionTestCases().forEach(testCase => {
-      this.formArray.push(
-        this.fb.group({
-          result: [testCase.result || 'Pending'],
-          actual: [testCase.actual || ''],
-          remarks: [testCase.remarks || '']
-        })
-      );
-      
-      this.uploads.push(
-        testCase.uploads 
-          ? testCase.uploads.map(url => ({ url, loaded: true })) 
-          : []
-      );
+  console.log('Initializing form for test cases:', this.versionTestCases().length);
+
+  this.versionTestCases().forEach((testCase, index) => {
+    const formGroup = this.fb.group({
+      result: [testCase.result || 'Pending'],
+      actual: [testCase.actual || ''],
+      remarks: [testCase.remarks || '']
     });
 
-    // Re-extract attributes after loading new test cases
-    this.extractAvailableAttributes();
-    this.initializeAttributeColumns();
+    console.log(`Form group ${index}:`, formGroup.value);
+    
+    this.formArray.push(formGroup);
+    
+    this.uploads.push(
+      testCase.uploads 
+        ? testCase.uploads.map(url => ({ url, loaded: true })) 
+        : []
+    );
+  });
 
-    setTimeout(() => {
-      this.updateScrollButtons();
-      this.cdRef.detectChanges();
-    }, 300);
-  }
+  console.log('Form array length after initialization:', this.formArray.length);
+  console.log('Form array controls:', this.formArray.controls);
+
+  // Re-extract attributes after loading new test cases
+  this.extractAvailableAttributes();
+  this.initializeAttributeColumns();
+
+  setTimeout(() => {
+    this.updateScrollButtons();
+    this.cdRef.detectChanges();
+  }, 300);
+}
 
   onVersionChange(): void {
     const mod = this.selectedModule();
@@ -1006,11 +1094,26 @@ export class ModulesComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.formArray.controls as FormGroup[];
   }
 
-  getFormControl(index: number, controlName: string): FormControl {
-    const control = this.formGroups()[index].get(controlName);
-    if (!control) throw new Error(`Form control '${controlName}' not found`);
-    return control as FormControl;
+ getFormControl(index: number, controlName: string): FormControl {
+  if (index >= this.formArray.length) {
+    console.error(`Form group at index ${index} does not exist. Array length: ${this.formArray.length}`);
+    throw new Error(`Form group at index ${index} does not exist`);
   }
+
+  const formGroup = this.formArray.at(index) as FormGroup;
+  const control = formGroup.get(controlName);
+  
+  if (!control) {
+    console.error(`Form control '${controlName}' not found in group at index ${index}`);
+    console.error('Available controls:', Object.keys(formGroup.controls));
+    throw new Error(`Form control '${controlName}' not found`);
+  }
+  
+  return control as FormControl;
+}
+isFormInitialized(): boolean {
+  return this.formArray.length === this.versionTestCases().length;
+}
 
   // Filtering methods
   filteredTestCases(): TestCase[] {

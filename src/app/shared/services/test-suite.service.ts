@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { 
   TestSuite, 
@@ -9,7 +9,7 @@ import {
   AssignTestCasesRequest
 } from '../modles/test-suite.model';
 import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map, tap } from 'rxjs/operators';
 import { IdResponse } from '../modles/product.model';
 import { TestCaseDetailResponse } from '../modles/test-case.model';
 
@@ -17,7 +17,7 @@ import { TestCaseDetailResponse } from '../modles/test-case.model';
   providedIn: 'root'
 })
 export class TestSuiteService {
-  private apiUrl = `${environment.apiUrl}/api`;
+  private apiUrl = `${environment.apiUrl}`;
 
   constructor(private http: HttpClient) { }
 
@@ -27,7 +27,7 @@ export class TestSuiteService {
     }
     
     return this.http.get<TestSuiteResponse[]>(
-      `${this.apiUrl}/products/${productId}/testsuites`
+      `${this.apiUrl}/api/products/${productId}/testsuites`
     ).pipe(
       catchError(error => {
         console.error('Error fetching test suites:', error);
@@ -42,7 +42,7 @@ export class TestSuiteService {
     }
     
     return this.http.get<TestSuiteResponse>(
-      `${this.apiUrl}/products/${productId}/testsuites/${id}`
+      `${this.apiUrl}/api/products/${productId}/testsuites/${id}`
     ).pipe(
       catchError(error => {
         console.error('Error fetching test suite:', error);
@@ -56,10 +56,15 @@ export class TestSuiteService {
       return throwError(() => new Error('Product ID is required'));
     }
     
+    console.log('Creating test suite with request:', suite);
+    
     return this.http.post<IdResponse>(
-      `${this.apiUrl}/products/${productId}/testsuites`, 
+      `${this.apiUrl}/api/products/${productId}/testsuites`, 
       suite
     ).pipe(
+      tap(response => {
+        console.log('Test suite creation response:', response);
+      }),
       catchError(error => {
         console.error('Error creating test suite:', error);
         return throwError(() => new Error('Failed to create test suite'));
@@ -73,7 +78,7 @@ export class TestSuiteService {
     }
     
     return this.http.put<void>(
-      `${this.apiUrl}/products/${productId}/testsuites/${id}`, 
+      `${this.apiUrl}/api/products/${productId}/testsuites/${id}`, 
       suite
     ).pipe(
       catchError(error => {
@@ -83,16 +88,20 @@ export class TestSuiteService {
     );
   }
 
-  deleteTestSuite(productId: string, id: string): Observable<void> {
-    if (!productId || !id) {
-      return throwError(() => new Error('Product ID and Test Suite ID are required'));
-    }
-    
+  deleteTestSuite(productId: string, testSuiteId: string, forceDelete: boolean = true): Observable<void> {
     return this.http.delete<void>(
-      `${this.apiUrl}/products/${productId}/testsuites/${id}`
+      `${this.apiUrl}/api/products/${productId}/testsuites/${testSuiteId}`,
+      {
+        params: { forceDelete: forceDelete.toString() }
+      }
     ).pipe(
-      catchError(error => {
-        console.error('Error deleting test suite:', error);
+      catchError((error) => {
+        if (error.status === 409) {
+          return throwError(() => new Error(error.error?.error || 'Cannot delete test suite with references'));
+        }
+        if (error.status === 404) {
+          return throwError(() => new Error('Test suite not found'));
+        }
         return throwError(() => new Error('Failed to delete test suite'));
       })
     );
@@ -104,7 +113,7 @@ export class TestSuiteService {
     }
     
     return this.http.get<TestSuiteWithCasesResponse>(
-      `${this.apiUrl}/testsuites/${testSuiteId}/testcases`
+      `${this.apiUrl}/api/testsuites/${testSuiteId}/testcases`
     ).pipe(
       catchError(error => {
         console.error('Error fetching test suite with cases:', error);
@@ -118,13 +127,42 @@ export class TestSuiteService {
       return throwError(() => new Error('Test Suite ID is required'));
     }
     
+    if (!request.testCaseIds || request.testCaseIds.length === 0) {
+      return throwError(() => new Error('At least one test case ID is required'));
+    }
+
+    console.log('Assigning test cases to suite:', {
+      testSuiteId,
+      request,
+      url: `${this.apiUrl}/api/testsuites/${testSuiteId}/testcases`
+    });
+    
     return this.http.post<void>(
-      `${this.apiUrl}/testsuites/${testSuiteId}/testcases`, 
+      `${this.apiUrl}/api/testsuites/${testSuiteId}/testcases`, 
       request
     ).pipe(
-      catchError(error => {
-        console.error('Error assigning test cases:', error);
-        return throwError(() => new Error('Failed to assign test cases'));
+      tap(() => {
+        console.log('Test cases assigned successfully');
+      }),
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error assigning test cases:', {
+          status: error.status,
+          statusText: error.statusText,
+          error: error.error,
+          message: error.message,
+          url: error.url
+        });
+        
+        let errorMessage = 'Failed to assign test cases';
+        if (error.status === 400) {
+          errorMessage = error.error?.message || 'Bad request - check test case IDs';
+        } else if (error.status === 404) {
+          errorMessage = 'Test suite not found';
+        } else if (error.status === 500) {
+          errorMessage = 'Server error occurred while assigning test cases';
+        }
+        
+        return throwError(() => new Error(errorMessage));
       })
     );
   }
@@ -135,7 +173,7 @@ export class TestSuiteService {
     }
     
     return this.http.delete<void>(
-      `${this.apiUrl}/testsuites/${testSuiteId}/testcases/${testCaseId}`
+      `${this.apiUrl}/api/testsuites/${testSuiteId}/testcases/${testCaseId}`
     ).pipe(
       catchError(error => {
         console.error('Error removing test case:', error);
@@ -148,24 +186,31 @@ export class TestSuiteService {
     if (!suiteId) {
       return throwError(() => new Error('Suite ID is required'));
     }
-    
-    return this.http.get<TestCaseDetailResponse[]>(
-      `${this.apiUrl}/testsuites/${suiteId}/testcases`
+
+    return this.http.get<TestSuiteWithCasesResponse>(
+      `${this.apiUrl}/api/testsuites/${suiteId}/testcases`
     ).pipe(
+      map(response => {
+        if (!response.testCases) {
+          throw new Error('Test cases array is undefined');
+        }
+        return response.testCases;
+      }),
       catchError(error => {
-        console.error('Error fetching test cases for suite:', error);
-        return throwError(() => new Error('Failed to fetch test cases for suite'));
+        console.error('Error fetching test cases:', error);
+        return throwError(() => new Error('Failed to fetch test cases'));
       })
     );
   }
 
+  // This method seems redundant with assignTestCasesToSuite
   addTestCasesToSuite(testSuiteId: string, testCaseIds: string[]): Observable<void> {
     if (!testSuiteId) {
       return throwError(() => new Error('Test Suite ID is required'));
     }
     
     return this.http.post<void>(
-      `${this.apiUrl}/testsuites/${testSuiteId}/testcases`,
+      `${this.apiUrl}/api/testsuites/${testSuiteId}/testcases`,
       { testCaseIds }
     ).pipe(
       catchError(error => {
